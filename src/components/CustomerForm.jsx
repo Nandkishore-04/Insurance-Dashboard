@@ -32,7 +32,7 @@ function Field({ label, required, error, children }) {
   )
 }
 
-const inputClass = "w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200"
+const inputClass = "w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm font-medium transition-all duration-200"
 
 export default function CustomerForm({ open, onClose, editData }) {
   const { add, update } = useCustomers()

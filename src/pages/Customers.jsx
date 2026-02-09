@@ -217,7 +217,7 @@ export default function Customers() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200"
+            className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200 min-w-[150px]"
             style={{
               backgroundColor: 'var(--bg-input)',
               borderColor: 'var(--border-color)',
@@ -236,7 +236,7 @@ export default function Customers() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200"
+            className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200 min-w-[150px]"
             style={{
               backgroundColor: 'var(--bg-input)',
               borderColor: 'var(--border-color)',

@@ -257,8 +257,8 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={typeStats} barSize={44}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={tooltipStyle} cursor={{ fill: 'var(--hover-bg)', radius: 8 }} />
                 <Bar dataKey="totalAmount" name="Total Amount" radius={[8, 8, 0, 0]} animationDuration={800}>
                   {typeStats.map((entry, i) => (<Cell key={i} fill={entry.fill} />))}
@@ -300,8 +300,8 @@ export default function Analytics() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Area type="monotone" dataKey="count" name="Deadlines" stroke="#10b981" fill="url(#greenGradient)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }} animationDuration={800} />
               </AreaChart>
@@ -316,8 +316,8 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={ageDistribution} barSize={40}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--hover-bg)', radius: 8 }} />
                 <Bar dataKey="count" name="Customers" fill="#0891b2" radius={[8, 8, 0, 0]} animationDuration={800} />
               </BarChart>

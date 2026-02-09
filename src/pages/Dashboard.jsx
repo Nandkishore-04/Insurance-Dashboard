@@ -158,13 +158,13 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   allowDecimals={false}
-                  tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 />
