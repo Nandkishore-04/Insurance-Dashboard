@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx --yes create-vite@latest . --template react:*)",
+      "Bash(xcopy \"D:\\\\Dashboard\\\\vite-project\\\\*\" \"D:\\\\Dashboard\"\" /s /e /y 2>&1 && rmdir /s /q \"D:Dashboardvite-project \")",
+      "Bash(npm install:*)",
+      "Bash(npx vite build)",
+      "Bash(npm run dev:*)",
+      "Bash(test:*)"
+    ]
+  }
+}
