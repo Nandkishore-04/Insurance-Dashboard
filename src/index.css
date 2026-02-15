@@ -20,14 +20,14 @@
   --bg-card: #ffffff;
   --bg-sidebar: #ffffff;
   --bg-input: #f0f1f3;
-  --text-primary: #09090b;
-  --text-secondary: #3f3f46;
-  --text-muted: #71717a;
+  --text-primary: #000000;
+  --text-secondary: #18181b;
+  --text-muted: #3f3f46;
   --border-color: #e4e4e7;
   --hover-bg: #f4f4f5;
-  --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.08);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.08);
-  --shadow-modal: 0 25px 50px -12px rgba(0,0,0,0.3);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
 
   /* Status badge colors */
   --status-active-bg: #d1fae5;
@@ -39,8 +39,8 @@
   --status-overdue-bg: #fee2e2;
   --status-overdue-text: #7f1d1d;
   --status-overdue-dot: #dc2626;
-  --status-row-overdue: rgba(239,68,68,0.06);
-  --status-row-approaching: rgba(245,158,11,0.06);
+  --status-row-overdue: rgba(239, 68, 68, 0.06);
+  --status-row-approaching: rgba(245, 158, 11, 0.06);
 }
 
 .dark {
@@ -54,22 +54,22 @@
   --text-muted: #71717a;
   --border-color: #2e2e2e;
   --hover-bg: #1c1c1c;
-  --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.5);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0,0,0,0.6);
-  --shadow-modal: 0 25px 50px -12px rgba(0,0,0,0.8);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.5);
+  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
 
   /* Status badge colors — dark mode vivid */
-  --status-active-bg: rgba(16,185,129,0.2);
+  --status-active-bg: rgba(16, 185, 129, 0.2);
   --status-active-text: #5eead4;
   --status-active-dot: #34d399;
-  --status-approaching-bg: rgba(245,158,11,0.2);
+  --status-approaching-bg: rgba(245, 158, 11, 0.2);
   --status-approaching-text: #fde047;
   --status-approaching-dot: #facc15;
-  --status-overdue-bg: rgba(239,68,68,0.2);
+  --status-overdue-bg: rgba(239, 68, 68, 0.2);
   --status-overdue-text: #fca5a5;
   --status-overdue-dot: #f87171;
-  --status-row-overdue: rgba(239,68,68,0.1);
-  --status-row-approaching: rgba(245,158,11,0.1);
+  --status-row-overdue: rgba(239, 68, 68, 0.1);
+  --status-row-approaching: rgba(245, 158, 11, 0.1);
 }
 
 body {
@@ -84,7 +84,9 @@ body {
   letter-spacing: -0.011em;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -93,22 +95,31 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--text-muted);
   border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
 
 /* Skeleton loading animation */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
+
 .skeleton {
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--hover-bg) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
@@ -118,22 +129,39 @@ body {
 
 /* Modal entrance animation */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
+
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
 }
+
 .animate-slide-up {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Focus ring for inputs */
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
   border-color: #10b981 !important;
@@ -153,7 +181,34 @@ select {
 }
 
 /* Focus-visible for buttons and interactive elements */
-button:focus-visible, a:focus-visible {
+button:focus-visible,
+a:focus-visible {
   outline: 2px solid #10b981;
   outline-offset: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+::placeholder {
+  color: #71717a;
+  opacity: 1;
+}
+
+:-ms-input-placeholder {
+  color: #71717a;
+}
+
+::-ms-input-placeholder {
+  color: #71717a;
 }

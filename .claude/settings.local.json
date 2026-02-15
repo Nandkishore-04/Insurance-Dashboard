@@ -7,7 +7,8 @@
       "Bash(npm install:*)",
       "Bash(npx vite build)",
       "Bash(npm run dev:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(node -e:*)"
     ]
   }
 }

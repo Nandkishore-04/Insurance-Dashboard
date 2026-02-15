@@ -4,13 +4,13 @@ import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         <main
           className="flex-1 overflow-y-auto p-4 lg:p-8"
           style={{ backgroundColor: 'var(--bg-secondary)' }}

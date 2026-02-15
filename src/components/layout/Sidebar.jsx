@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, BarChart3, Shield, X } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart3, Shield, X, Settings } from 'lucide-react'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function Sidebar({ open, onClose }) {
@@ -20,10 +21,10 @@ export default function Sidebar({ open, onClose }) {
 
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-full w-[260px] flex flex-col
-          border-r transition-transform duration-300 ease-in-out
-          lg:translate-x-0 lg:static lg:z-auto
-          ${open ? 'translate-x-0' : '-translate-x-full'}
+          fixed top-0 left-0 z-50 h-full flex flex-col
+          border-r transition-all duration-300 ease-in-out
+          lg:static lg:z-auto
+          ${open ? 'w-[260px] translate-x-0' : 'w-0 -translate-x-full lg:translate-x-0 overflow-hidden border-none'}
         `}
         style={{
           backgroundColor: 'var(--bg-sidebar)',
@@ -45,7 +46,7 @@ export default function Sidebar({ open, onClose }) {
           </span>
           <button
             onClick={onClose}
-            className="ml-auto lg:hidden p-1.5 rounded-lg transition-colors hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+            className="ml-auto p-1.5 rounded-lg transition-colors hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
@@ -63,10 +64,9 @@ export default function Sidebar({ open, onClose }) {
               to={to}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/25'
-                    : 'hover:bg-[var(--hover-bg)]'
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 ${isActive
+                  ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/25'
+                  : 'hover:bg-[var(--hover-bg)]'
                 }`
               }
               style={({ isActive }) =>

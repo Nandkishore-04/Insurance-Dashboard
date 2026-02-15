@@ -1,30 +1,29 @@
-export const INSURANCE_TYPES = [
-  'Life Insurance',
-  'Health Insurance',
-  'Auto Insurance',
-  'Home Insurance',
-  'Travel Insurance',
-]
+export const INSURANCE_TYPES = ['General', 'Life', 'Health', 'Personal Accident']
 
 export const INSURANCE_COLORS = {
-  'Life Insurance': '#059669',
-  'Health Insurance': '#0891b2',
-  'Auto Insurance': '#7c3aed',
-  'Home Insurance': '#db2777',
-  'Travel Insurance': '#ea580c',
+  General: '#7c3aed',
+  Life: '#059669',
+  Health: '#0891b2',
+  'Personal Accident': '#f59e0b',
 }
 
-export const getDaysUntilDeadline = (deadline) => {
+export const GENERAL_SUBTYPES = ['Pvt Car', 'Commercial Vehicle', 'Two Wheeler']
+
+export const PAYMENT_MODES = ['YLY', 'HLY', 'QLY', 'MLY']
+
+export const getDaysUntilDeadline = (expiryDate) => {
+  if (!expiryDate) return Infinity
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const deadlineDate = new Date(deadline)
-  deadlineDate.setHours(0, 0, 0, 0)
-  const diffTime = deadlineDate - today
+  const d = new Date(expiryDate)
+  d.setHours(0, 0, 0, 0)
+  const diffTime = d - today
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 }
 
-export const getDeadlineStatus = (deadline) => {
-  const days = getDaysUntilDeadline(deadline)
+export const getDeadlineStatus = (expiryDate) => {
+  if (!expiryDate) return 'active'
+  const days = getDaysUntilDeadline(expiryDate)
   if (days < 0) return 'overdue'
   if (days <= 30) return 'approaching'
   return 'active'

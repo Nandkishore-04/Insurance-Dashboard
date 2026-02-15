@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, AlertTriangle, Clock, ShieldCheck, Eye } from 'lucide-react'
+import { Users, AlertTriangle, Clock, ShieldCheck, Eye, Shield, Plus } from 'lucide-react'
+import CustomerForm from '../components/CustomerForm'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
 import EmptyState from '../components/EmptyState'
-import CustomerDetail from '../components/CustomerDetail'
 import { useCustomers } from '../context/CustomerContext'
 import {
   INSURANCE_TYPES, INSURANCE_COLORS,
@@ -87,30 +87,33 @@ function EmptyChart({ message, type = 'chart' }) {
 }
 
 export default function Dashboard() {
-  const { customers, loading } = useCustomers()
+  const { customers, insurances, loading } = useCustomers()
   const navigate = useNavigate()
   const [viewTarget, setViewTarget] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState(null)
 
   const stats = useMemo(() => {
-    const total = customers.length
-    const overdue = customers.filter((c) => getDeadlineStatus(c.deadline) === 'overdue').length
-    const approaching = customers.filter((c) => getDeadlineStatus(c.deadline) === 'approaching').length
-    const active = customers.filter((c) => getDeadlineStatus(c.deadline) === 'active').length
-    return { total, overdue, approaching, active }
-  }, [customers])
+    const totalCustomers = customers.length
+    const totalPolicies = insurances.length
+    const overdue = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'overdue').length
+    const approaching = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'approaching').length
+    const active = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'active').length
+    return { totalCustomers, totalPolicies, overdue, approaching, active }
+  }, [customers, insurances])
 
   const barData = useMemo(() => {
     const counts = {}
     INSURANCE_TYPES.forEach((t) => (counts[t] = 0))
-    customers.forEach((c) => {
-      if (counts[c.insurance_type] !== undefined) counts[c.insurance_type]++
+    insurances.forEach((p) => {
+      if (counts[p.insurance_type] !== undefined) counts[p.insurance_type]++
     })
     return INSURANCE_TYPES.map((t) => ({
-      name: t.replace(' Insurance', ''),
+      name: t,
       count: counts[t],
       fill: INSURANCE_COLORS[t],
     }))
-  }, [customers])
+  }, [insurances])
 
   const pieData = useMemo(() => {
     return barData.filter((d) => d.count > 0).map((d) => ({
@@ -120,28 +123,43 @@ export default function Dashboard() {
     }))
   }, [barData])
 
+  // Upcoming deadlines with customer name
   const upcoming = useMemo(() => {
-    return customers
-      .filter((c) => getDaysUntilDeadline(c.deadline) >= 0)
+    const customerMap = new Map(customers.map((c) => [c.id, c]))
+    return insurances
+      .filter((p) => getDaysUntilDeadline(p.expiry_date) >= 0)
       .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
       .slice(0, 5)
-  }, [customers])
+      .map((p) => ({
+        ...p,
+        customerName: customerMap.get(p.customer_id)?.name || 'Unknown',
+      }))
+  }, [insurances, customers])
 
   if (loading) return <LoadingSkeleton />
 
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dashboard</h1>
-        <p className="text-sm font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Overview of your insurance portfolio
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dashboard</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Overview of your insurance portfolio
+          </p>
+        </div>
+        <button
+          onClick={() => { setFormMode(null); setFormOpen(true); }}
+          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold text-sm shadow-lg shadow-primary-500/20 active:scale-95 transition-all"
+        >
+          <Plus className="w-5 h-5" />
+          Add Insurance
+        </button>
       </div>
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <MetricCard icon={Users} label="Total Customers" value={stats.total} color="#059669" subtext="All registered" onClick={() => navigate('/customers')} />
+        <MetricCard icon={Users} label="Total Customers" value={stats.totalCustomers} color="#059669" subtext={`${stats.totalPolicies} policies`} onClick={() => navigate('/customers')} />
         <MetricCard icon={Clock} label="Approaching" value={stats.approaching} color="#f59e0b" subtext="Within 30 days" onClick={() => navigate('/customers?status=approaching')} />
         <MetricCard icon={AlertTriangle} label="Overdue" value={stats.overdue} color="#ef4444" subtext="Past deadline" onClick={() => navigate('/customers?status=overdue')} />
         <MetricCard icon={ShieldCheck} label="Active" value={stats.active} color="#0891b2" subtext="30+ days left" onClick={() => navigate('/customers?status=active')} />
@@ -149,9 +167,9 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard title="Customers by Type" subtitle="Distribution across insurance categories" className="lg:col-span-2">
-          {customers.length === 0 ? (
-            <EmptyChart message="Add customers to see the chart" />
+        <ChartCard title="Policies by Type" subtitle="Distribution across insurance categories" className="lg:col-span-2">
+          {insurances.length === 0 ? (
+            <EmptyChart message="Add policies to see the chart" />
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={barData} barSize={44}>
@@ -169,7 +187,7 @@ export default function Dashboard() {
                   tickLine={false}
                 />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--hover-bg)', radius: 8 }} />
-                <Bar dataKey="count" name="Customers" radius={[8, 8, 0, 0]} animationDuration={800}>
+                <Bar dataKey="count" name="Policies" radius={[8, 8, 0, 0]} animationDuration={800}>
                   {barData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
                   ))}
@@ -238,19 +256,19 @@ export default function Dashboard() {
           <EmptyState
             type="calendar"
             title="No upcoming deadlines"
-            description="Add customers with future deadlines to see them here."
+            description="Add policies with future deadlines to see them here."
           />
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
-            {upcoming.map((c) => {
-              const days = getDaysUntilDeadline(c.deadline)
-              const status = getDeadlineStatus(c.deadline)
+            {upcoming.map((p) => {
+              const days = getDaysUntilDeadline(p.expiry_date)
+              const status = getDeadlineStatus(p.expiry_date)
               const sv = statusVars[status]
               return (
                 <div
-                  key={c.id}
+                  key={p.id}
                   className="flex items-center justify-between px-6 py-4 transition-colors duration-150 hover:bg-[var(--hover-bg)] cursor-pointer"
-                  onClick={() => setViewTarget(c)}
+                  onClick={() => navigate(`/customer/${p.customer_id}`)}
                 >
                   <div className="flex items-center gap-4">
                     <div
@@ -260,20 +278,20 @@ export default function Dashboard() {
                         color: sv.dot,
                       }}
                     >
-                      {c.name.charAt(0).toUpperCase()}
+                      {p.customerName.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {c.name}
+                        {p.customerName}
                       </p>
                       <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {c.insurance_type} &middot; {formatCurrency(c.amount)}
+                        {p.insurance_type} &middot; {formatCurrency(p.premium)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right flex items-center gap-3">
                     <p className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-secondary)' }}>
-                      {formatDate(c.deadline)}
+                      {formatDate(p.expiry_date)}
                     </p>
                     <span
                       className="text-[11px] px-2.5 py-1 rounded-full font-bold whitespace-nowrap"
@@ -286,14 +304,6 @@ export default function Dashboard() {
                         ? `${Math.abs(days)}d overdue`
                         : `${days}d left`}
                     </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setViewTarget(c) }}
-                      className="p-2 rounded-lg transition-all duration-200 hover:bg-primary-500/10 hover:text-primary-600"
-                      style={{ color: 'var(--text-muted)' }}
-                      aria-label={`View ${c.name} details`}
-                    >
-                      <Eye className="w-4 h-4" aria-hidden="true" />
-                    </button>
                   </div>
                 </div>
               )
@@ -302,13 +312,13 @@ export default function Dashboard() {
         )}
       </div>
 
-      <CustomerDetail
-        customer={viewTarget}
-        open={!!viewTarget}
-        onClose={() => setViewTarget(null)}
-        onEdit={() => navigate('/customers')}
-        onDelete={() => navigate('/customers')}
-      />
+      {formOpen && (
+        <CustomerForm
+          isOpen={formOpen}
+          onClose={() => setFormOpen(false)}
+          mode={formMode}
+        />
+      )}
     </div>
   )
 }

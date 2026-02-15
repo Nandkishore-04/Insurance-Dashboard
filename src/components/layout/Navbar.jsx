@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun, Menu, Search, X } from 'lucide-react'
+import { Moon, Sun, Menu, Search, X, LogOut } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../context/AuthContext'
 
 export default function Navbar({ onMenuClick }) {
   const { dark, toggle } = useTheme()
+  const { logout, user } = useAuth()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -46,14 +48,14 @@ export default function Navbar({ onMenuClick }) {
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-xl transition-all duration-200 hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+          className="p-2 rounded-xl transition-all duration-200 hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
           style={{ color: 'var(--text-secondary)' }}
-          aria-label="Open menu"
+          aria-label="Toggle menu"
         >
           <Menu className="w-5 h-5" aria-hidden="true" />
         </button>
 
-        <form onSubmit={handleSubmit} className="hidden sm:block">
+        <form onSubmit={handleSubmit} className="hidden sm:block" data-testid="navbar-search-form">
           <div
             className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl w-72 border transition-all duration-200"
             style={{
@@ -74,6 +76,7 @@ export default function Navbar({ onMenuClick }) {
               className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-[var(--text-muted)]"
               style={{ color: 'var(--text-primary)' }}
               aria-label="Search customers"
+              data-testid="input-navbar-search"
             />
             {query ? (
               <button
@@ -106,18 +109,24 @@ export default function Navbar({ onMenuClick }) {
           className="p-2.5 rounded-xl transition-all duration-200 hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          data-testid="btn-theme-toggle"
         >
           {dark ? <Sun className="w-[18px] h-[18px]" aria-hidden="true" /> : <Moon className="w-[18px] h-[18px]" aria-hidden="true" />}
         </button>
 
         <div className="w-px h-8 mx-1" style={{ backgroundColor: 'var(--border-color)' }} aria-hidden="true" />
 
-        <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-            A
+        <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl group cursor-pointer" onClick={logout} data-testid="btn-logout">
+          <div className="relative">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-primary-500/30 transition-shadow">
+              {user?.name?.charAt(0) || 'A'}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[var(--bg-card)] border-2 border-[var(--bg-card)] flex items-center justify-center rounded-full shadow-sm text-red-500 bg-red-500">
+              <LogOut className="w-2.5 h-2.5 text-white" />
+            </div>
           </div>
           <div className="hidden md:block text-left">
-            <p className="text-xs font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>Admin</p>
+            <p className="text-xs font-semibold leading-none group-hover:text-red-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Admin'}</p>
           </div>
         </div>
       </div>

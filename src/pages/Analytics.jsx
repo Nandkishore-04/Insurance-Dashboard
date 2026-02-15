@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IndianRupee, TrendingUp, PieChart as PieIcon } from 'lucide-react'
+import { IndianRupee, TrendingUp, PieChart as PieIcon, Users } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area,
@@ -69,86 +69,66 @@ function EmptyChart({ message }) {
 }
 
 export default function Analytics() {
-  const { customers, loading } = useCustomers()
+  const { customers, insurances, loading } = useCustomers()
   const navigate = useNavigate()
 
   const typeStats = useMemo(() => {
     const stats = {}
     INSURANCE_TYPES.forEach((t) => { stats[t] = { count: 0, totalAmount: 0 } })
-    customers.forEach((c) => {
-      if (stats[c.insurance_type]) {
-        stats[c.insurance_type].count++
-        stats[c.insurance_type].totalAmount += Number(c.amount) || 0
+    insurances.forEach((p) => {
+      if (stats[p.insurance_type]) {
+        stats[p.insurance_type].count++
+        stats[p.insurance_type].totalAmount += Number(p.premium) || 0
       }
     })
     return INSURANCE_TYPES.map((t) => ({
-      name: t.replace(' Insurance', ''),
+      name: t,
       fullName: t,
       count: stats[t].count,
       totalAmount: stats[t].totalAmount,
       avgAmount: stats[t].count > 0 ? Math.round(stats[t].totalAmount / stats[t].count) : 0,
       fill: INSURANCE_COLORS[t],
     }))
-  }, [customers])
+  }, [insurances])
 
   const statusData = useMemo(() => {
     const counts = { active: 0, approaching: 0, overdue: 0 }
-    customers.forEach((c) => { counts[getDeadlineStatus(c.deadline)]++ })
+    insurances.forEach((p) => { counts[getDeadlineStatus(p.expiry_date)]++ })
     return [
       { name: 'Active', value: counts.active, fill: '#059669' },
       { name: 'Approaching', value: counts.approaching, fill: '#f59e0b' },
       { name: 'Overdue', value: counts.overdue, fill: '#ef4444' },
     ].filter((d) => d.value > 0)
-  }, [customers])
+  }, [insurances])
 
   const monthlyData = useMemo(() => {
     const months = {}
-    customers.forEach((c) => {
-      const d = new Date(c.deadline)
+    insurances.forEach((p) => {
+      const d = new Date(p.expiry_date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
       if (!months[key]) months[key] = { key, month: label, count: 0, amount: 0 }
       months[key].count++
-      months[key].amount += Number(c.amount) || 0
+      months[key].amount += Number(p.premium) || 0
     })
     return Object.values(months).sort((a, b) => a.key.localeCompare(b.key))
-  }, [customers])
+  }, [insurances])
 
-  const ageDistribution = useMemo(() => {
-    const brackets = [
-      { label: '18-25', min: 18, max: 25, count: 0 },
-      { label: '26-35', min: 26, max: 35, count: 0 },
-      { label: '36-45', min: 36, max: 45, count: 0 },
-      { label: '46-55', min: 46, max: 55, count: 0 },
-      { label: '56-65', min: 56, max: 65, count: 0 },
-      { label: '65+', min: 66, max: 200, count: 0 },
-    ]
-    customers.forEach((c) => {
-      if (c.age) {
-        const b = brackets.find((br) => c.age >= br.min && c.age <= br.max)
-        if (b) b.count++
-      }
-    })
-    return brackets.map((b) => ({ name: b.label, count: b.count }))
-  }, [customers])
-
-  const totalPremium = customers.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
-  const avgPremium = customers.length > 0 ? Math.round(totalPremium / customers.length) : 0
+  const totalPremium = insurances.reduce((sum, p) => sum + (Number(p.premium) || 0), 0)
+  const avgPremium = insurances.length > 0 ? Math.round(totalPremium / insurances.length) : 0
 
   const exportPDF = () => {
-    if (customers.length === 0) return
+    if (insurances.length === 0) return
     const doc = new jsPDF()
 
-    // Header
     doc.setFontSize(20)
-    doc.setTextColor(16, 185, 129) // primary-500
+    doc.setTextColor(16, 185, 129)
     doc.text('Insurance Portfolio Analytics', 14, 22)
 
     doc.setFontSize(10)
     doc.setTextColor(100)
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 30)
 
-    // Summary Section
     doc.setFontSize(14)
     doc.setTextColor(0)
     doc.text('Executive Summary', 14, 42)
@@ -157,6 +137,7 @@ export default function Analytics() {
       ['Total Premium Value', formatCurrency(totalPremium)],
       ['Average Premium', formatCurrency(avgPremium)],
       ['Total Customers', customers.length.toString()],
+      ['Total Policies', insurances.length.toString()],
       ['Types of Insurance', INSURANCE_TYPES.length.toString()]
     ]
 
@@ -168,11 +149,10 @@ export default function Analytics() {
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
     })
 
-    // Type Breakdown Section
     doc.setFontSize(14)
     doc.text('Insurance Type Breakdown', 14, doc.lastAutoTable.finalY + 12)
 
-    const tableColumn = ['Insurance Type', 'Customers', 'Total Premium', 'Avg Premium']
+    const tableColumn = ['Insurance Type', 'Policies', 'Total Premium', 'Avg Premium']
     const tableRows = typeStats.map(t => [
       t.fullName,
       t.count.toString(),
@@ -251,7 +231,7 @@ export default function Analytics() {
       {/* Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ChartCard title="Premium by Type" subtitle="Total premium amount per category" className="lg:col-span-2">
-          {customers.length === 0 ? (
+          {insurances.length === 0 ? (
             <EmptyChart message="No data available" />
           ) : (
             <ResponsiveContainer width="100%" height={320}>
@@ -285,46 +265,28 @@ export default function Analytics() {
         </ChartCard>
       </div>
 
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Deadlines Timeline" subtitle="Upcoming deadlines by month">
-          {monthlyData.length === 0 ? (
-            <EmptyChart message="No data available" />
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={monthlyData}>
-                <defs>
-                  <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Area type="monotone" dataKey="count" name="Deadlines" stroke="#10b981" fill="url(#greenGradient)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }} animationDuration={800} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </ChartCard>
-
-        <ChartCard title="Age Distribution" subtitle="Customer age brackets">
-          {customers.length === 0 ? (
-            <EmptyChart message="No data available" />
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={ageDistribution} barSize={40}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'var(--hover-bg)', radius: 8 }} />
-                <Bar dataKey="count" name="Customers" fill="#0891b2" radius={[8, 8, 0, 0]} animationDuration={800} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </ChartCard>
-      </div>
+      {/* Row 2 - Deadlines Timeline (full width, age chart removed) */}
+      <ChartCard title="Deadlines Timeline" subtitle="Upcoming deadlines by month">
+        {monthlyData.length === 0 ? (
+          <EmptyChart message="No data available" />
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={monthlyData}>
+              <defs>
+                <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Area type="monotone" dataKey="count" name="Deadlines" stroke="#10b981" fill="url(#greenGradient)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }} animationDuration={800} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </ChartCard>
 
       {/* Type breakdown table */}
       <ChartCard title="Insurance Type Breakdown" subtitle="Detailed comparison across all types">
@@ -333,7 +295,7 @@ export default function Analytics() {
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                 <th className="text-left py-3 px-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Type</th>
-                <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Customers</th>
+                <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Policies</th>
                 <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total Premium</th>
                 <th className="text-right py-3 px-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Avg Premium</th>
               </tr>

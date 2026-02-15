@@ -21,7 +21,7 @@ export default function MetricCard({ icon: Icon, label, value, color, subtext, o
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-primary)' }}>
             {label}
           </p>
           <p className="text-4xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
