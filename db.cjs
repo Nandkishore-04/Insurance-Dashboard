@@ -6,10 +6,8 @@ const crypto = require('crypto')
 let db
 
 function initDB() {
-  console.log('Initializing Database...')
   try {
     const dbPath = path.join(app.getPath('userData'), 'insurance.db')
-    console.log('DB Path:', dbPath)
     db = new Database(dbPath)
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
@@ -63,10 +61,17 @@ function initDB() {
         agency_code TEXT,
         expiry_date TEXT,
         details TEXT, -- JSON block for specialized fields (Motor/Mediclaim specific)
+        renewal_acknowledged INTEGER DEFAULT 0, -- 1 if admin has handled the renewal reminder
         created_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
       )
     `)
+
+    // Add renewal_acknowledged column to existing databases
+    const insColumns = db.prepare("PRAGMA table_info(insurances)").all().map(c => c.name)
+    if (!insColumns.includes('renewal_acknowledged')) {
+      db.exec(`ALTER TABLE insurances ADD COLUMN renewal_acknowledged INTEGER DEFAULT 0`)
+    }
     // Performance indexes for 10k+ records
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)`)
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_cust_code ON customers(cust_code)`)
@@ -75,7 +80,6 @@ function initDB() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_insurances_expiry_date ON insurances(expiry_date)`)
     db.exec(`CREATE INDEX IF NOT EXISTS idx_insurances_type ON insurances(insurance_type)`)
 
-    console.log('Database initialized successfully.')
     return db
   } catch (err) {
     console.error('Failed to initialize database:', err)
@@ -183,6 +187,15 @@ function updateInsurance(id, data) {
   return parseInsuranceRow(db.prepare('SELECT * FROM insurances WHERE id = ?').get(id))
 }
 
+function acknowledgeRenewal(id) {
+  db.prepare('UPDATE insurances SET renewal_acknowledged = 1 WHERE id = ?').run(id)
+  return parseInsuranceRow(db.prepare('SELECT * FROM insurances WHERE id = ?').get(id))
+}
+
+function deleteInsurance(id) {
+  db.prepare('DELETE FROM insurances WHERE id = ?').run(id)
+}
+
 async function seedTestData() {
   const count = db.prepare('SELECT COUNT(*) as count FROM customers').get().count
   if (count > 0) return // Already has data
@@ -208,7 +221,7 @@ async function seedTestData() {
 
     db.prepare(`
       INSERT INTO customers (id, cust_code, name, phone, address, dob, email, pan_number) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customerId, cust_code, c.name, c.phone, c.address, `19${90 - i}-01-01`, c.email, c.pan_number
     )
@@ -231,6 +244,61 @@ async function seedTestData() {
       crypto.randomUUID(), customerId, `POL-00${i}`, type, insurer, 15000 + (i * 1000), `AG-00${i}`, expiry.toISOString().split('T')[0], JSON.stringify(details)
     )
   }
+}
+
+function seedLargeData(count = 10000) {
+  const crypto = require('crypto')
+
+  const insertCustomer = db.prepare(`
+    INSERT INTO customers (id, cust_code, name, phone, address, dob, email, pan_number, created_at) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const insertInsurance = db.prepare(`
+    INSERT INTO insurances (id, customer_id, policy_no, insurance_type, insurer, premium, agency_code, expiry_date, details) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const generateRandomName = () => {
+    const firstNames = ['Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Ayaan', 'Krishna', 'Ishaan', 'Diya', 'Saanvi', 'Ananya', 'Aadhya', 'Pari', 'Myra', 'Riya', 'Kiara', 'Ira', 'Anika']
+    const lastNames = ['Kumar', 'Singh', 'Sharma', 'Patel', 'Gupta', 'Reddy', 'Nair', 'Verma', 'Iyer', 'Chatterjee', 'Das', 'Sen', 'Dutta', 'Roy', 'Mishra', 'Jha', 'Yadav', 'Khan', 'Ali', 'Ahmed']
+    return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`
+  }
+
+  const transaction = db.transaction((records) => {
+    const runId = Date.now().toString().slice(-6)
+    for (let i = 0; i < records; i++) {
+      const id = crypto.randomUUID()
+      const name = generateRandomName()
+      const code = `TEST-${runId}-${String(i).padStart(5, '0')}`
+
+      insertCustomer.run(
+        id, code, name,
+        '9876543210', 'Test Address, India',
+        `19${Math.floor(Math.random() * 40) + 60}-01-01`,
+        `test${runId}_${i}@example.com`, `ABC${String(i).padStart(5, '0').slice(-5)}DE`,
+        new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toISOString()
+      )
+
+      // Add 1-3 policies per customer
+      const policyCount = Math.floor(Math.random() * 3) + 1
+      for (let j = 0; j < policyCount; j++) {
+        const type = ['General', 'Health', 'Life', 'Personal Accident'][Math.floor(Math.random() * 4)]
+        const expiry = new Date()
+        expiry.setDate(expiry.getDate() + Math.floor(Math.random() * 365))
+
+        insertInsurance.run(
+          crypto.randomUUID(), id, `POL-${i}-${j}`, type,
+          'Test Insurer', Math.floor(Math.random() * 50000) + 1000,
+          'AG-TEST', expiry.toISOString().split('T')[0],
+          JSON.stringify({})
+        )
+      }
+    }
+  })
+
+  transaction(count)
+  return { success: true, count }
 }
 
 function deleteInsurance(id) {
@@ -258,10 +326,18 @@ function getDBPath() {
 
 function exportDB(destPath) {
   const fs = require('fs')
-  const srcPath = getDBPath()
+  // Validate the destination path is absolute and normalized
+  const resolved = path.resolve(destPath)
+  if (resolved !== path.normalize(destPath)) {
+    throw new Error('Invalid export path')
+  }
+  // Remove existing file if present (VACUUM INTO fails if file exists)
+  if (fs.existsSync(resolved)) {
+    fs.unlinkSync(resolved)
+  }
   // Use SQLite backup API via VACUUM INTO for a safe, consistent copy
-  db.exec(`VACUUM INTO '${destPath.replace(/'/g, "''")}'`)
-  return { success: true, path: destPath }
+  db.exec(`VACUUM INTO '${resolved.replace(/\\/g, '/').replace(/'/g, "''")}'`)
+  return { success: true, path: resolved }
 }
 
 function importDB(srcPath) {
@@ -276,14 +352,71 @@ function importDB(srcPath) {
   if (!tables.includes('customers') || !tables.includes('insurances')) {
     throw new Error('Invalid backup: missing customers or insurances tables')
   }
-  // Close current DB, copy over, re-init
+  // Close current DB, copy over, re-init with full schema migrations
   const destPath = getDBPath()
   db.close()
   fs.copyFileSync(srcPath, destPath)
-  db = new Database(destPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  db = null
+  initDB() // Re-runs schema migrations to add any missing columns
   return { success: true }
+}
+
+function getBackupDir() {
+  const documentsPath = app.getPath('documents')
+  return path.join(documentsPath, 'Insurance Tracking Backups')
+}
+
+function toCsvRow(values) {
+  return values.map(v => {
+    if (v == null) return ''
+    const s = String(v)
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"'
+    }
+    return s
+  }).join(',')
+}
+
+function autoBackup() {
+  const fs = require('fs')
+  const backupDir = getBackupDir()
+  const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+  const todayDir = path.join(backupDir, today)
+
+  // Check if today's backup already exists
+  if (fs.existsSync(todayDir)) {
+    return { skipped: true, reason: 'Today\'s backup already exists', path: todayDir }
+  }
+
+  // Create today's backup folder
+  fs.mkdirSync(todayDir, { recursive: true })
+
+  // 1. SQLite backup
+  const dbBackupPath = path.join(todayDir, 'backup.db').replace(/\\/g, '/').replace(/'/g, "''")
+  db.exec(`VACUUM INTO '${dbBackupPath}'`)
+
+  // 2. Customers CSV
+  const customers = db.prepare('SELECT * FROM customers').all()
+  if (customers.length > 0) {
+    const custHeaders = Object.keys(customers[0])
+    const custCsv = [toCsvRow(custHeaders), ...customers.map(r => toCsvRow(custHeaders.map(h => r[h])))].join('\n')
+    fs.writeFileSync(path.join(todayDir, 'customers.csv'), '\uFEFF' + custCsv, 'utf8') // BOM for Excel
+  }
+
+  // 3. Policies CSV (insurances joined with customer name/code for readability)
+  const policies = db.prepare(`
+    SELECT i.*, c.name AS customer_name, c.cust_code
+    FROM insurances i
+    LEFT JOIN customers c ON i.customer_id = c.id
+    ORDER BY c.name, i.expiry_date
+  `).all()
+  if (policies.length > 0) {
+    const polHeaders = Object.keys(policies[0])
+    const polCsv = [toCsvRow(polHeaders), ...policies.map(r => toCsvRow(polHeaders.map(h => r[h])))].join('\n')
+    fs.writeFileSync(path.join(todayDir, 'policies.csv'), '\uFEFF' + polCsv, 'utf8') // BOM for Excel
+  }
+
+  return { success: true, path: todayDir, date: today }
 }
 
 module.exports = {
@@ -296,10 +429,14 @@ module.exports = {
   getInsurances,
   addInsurance,
   updateInsurance,
+  acknowledgeRenewal,
   deleteInsurance,
   searchCustomers,
   seedTestData,
+  seedLargeData,
   exportDB,
   importDB,
   getDBPath,
+  getBackupDir,
+  autoBackup,
 }

@@ -1,19 +1,17 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState } from 'react'
 import toast from 'react-hot-toast'
 
 const AuthContext = createContext()
 
-export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
+function getInitialUser() {
+    try {
         const loggedUser = localStorage.getItem('loggedUser')
-        if (loggedUser) {
-            setUser(JSON.parse(loggedUser))
-        }
-        setLoading(false)
-    }, [])
+        return loggedUser ? JSON.parse(loggedUser) : null
+    } catch { return null }
+}
+
+export function AuthProvider({ children }) {
+    const [user, setUser] = useState(getInitialUser)
 
     const getUsers = () => {
         const users = localStorage.getItem('users')
@@ -62,7 +60,7 @@ export function AuthProvider({ children }) {
     const value = {
         user,
         isAuthenticated: !!user,
-        loading,
+        loading: false,
         hasUsers,
         login,
         register,

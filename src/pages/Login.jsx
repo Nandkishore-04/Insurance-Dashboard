@@ -1,21 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Shield, Key, Eye, EyeOff, Lock, User, UserPlus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
     const { login, register, hasUsers } = useAuth()
-    const [isSetup, setIsSetup] = useState(false)
+    const [isSetup, setIsSetup] = useState(() => !hasUsers())
 
     // Form states
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [name, setName] = useState('')
     const [showPassword, setShowPassword] = useState(false)
-    const [isAnimating, setIsAnimating] = useState(false)
-
-    useEffect(() => {
-        setIsSetup(!hasUsers())
-    }, [hasUsers])
 
     const handleLogin = (e) => {
         e.preventDefault()
@@ -159,7 +154,7 @@ export default function Login() {
                 <div className="mt-10 text-center space-y-4">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-50 flex items-center justify-center gap-4">
                         <span className="w-8 h-px bg-[var(--border-color)]" />
-                        V 1.0.4 PRO
+                        Insurance Tracking v1.0.4
                         <span className="w-8 h-px bg-[var(--border-color)]" />
                     </p>
                     <div className="flex items-center justify-center gap-6 text-[11px] font-bold text-[var(--text-muted)]">

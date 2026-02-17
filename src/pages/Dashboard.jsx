@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, AlertTriangle, Clock, ShieldCheck, Eye, Shield, Plus } from 'lucide-react'
-import CustomerForm from '../components/CustomerForm'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
 import EmptyState from '../components/EmptyState'
+import RenewalDialog from '../components/RenewalDialog'
+import CustomerForm from '../components/CustomerForm'
 import { useCustomers } from '../context/CustomerContext'
 import {
   INSURANCE_TYPES, INSURANCE_COLORS,
@@ -89,9 +90,15 @@ function EmptyChart({ message, type = 'chart' }) {
 export default function Dashboard() {
   const { customers, insurances, loading } = useCustomers()
   const navigate = useNavigate()
-  const [viewTarget, setViewTarget] = useState(null)
+  const [renewalTarget, setRenewalTarget] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState(null)
+
+  const handleRenewal = (policy) => {
+    // Open the edit insurance form with the policy data
+    setFormMode({ type: 'editInsurance', insurance: policy })
+    setFormOpen(true)
+  }
 
   const stats = useMemo(() => {
     const totalCustomers = customers.length
@@ -123,16 +130,17 @@ export default function Dashboard() {
     }))
   }, [barData])
 
-  // Upcoming deadlines with customer name
+  // Upcoming deadlines with customer name (exclude acknowledged renewals)
   const upcoming = useMemo(() => {
     const customerMap = new Map(customers.map((c) => [c.id, c]))
     return insurances
-      .filter((p) => getDaysUntilDeadline(p.expiry_date) >= 0)
-      .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+      .filter((p) => getDaysUntilDeadline(p.expiry_date) >= 0 && !p.renewal_acknowledged)
+      .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
       .slice(0, 5)
       .map((p) => ({
         ...p,
         customerName: customerMap.get(p.customer_id)?.name || 'Unknown',
+        customer: customerMap.get(p.customer_id),
       }))
   }, [insurances, customers])
 
@@ -149,7 +157,7 @@ export default function Dashboard() {
           </p>
         </div>
         <button
-          onClick={() => { setFormMode(null); setFormOpen(true); }}
+          onClick={() => navigate('/customers/add')}
           className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold text-sm shadow-lg shadow-primary-500/20 active:scale-95 transition-all"
         >
           <Plus className="w-5 h-5" />
@@ -267,10 +275,12 @@ export default function Dashboard() {
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between px-6 py-4 transition-colors duration-150 hover:bg-[var(--hover-bg)] cursor-pointer"
-                  onClick={() => navigate(`/customer/${p.customer_id}`)}
+                  className="flex items-center justify-between px-6 py-4 transition-colors duration-150 hover:bg-[var(--hover-bg)]"
                 >
-                  <div className="flex items-center gap-4">
+                  <div
+                    className="flex items-center gap-4 flex-1 cursor-pointer"
+                    onClick={() => navigate(`/customer/${p.customer_id}`)}
+                  >
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
                       style={{
@@ -289,21 +299,34 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-3">
-                    <p className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-secondary)' }}>
-                      {formatDate(p.expiry_date)}
-                    </p>
-                    <span
-                      className="text-[11px] px-2.5 py-1 rounded-full font-bold whitespace-nowrap"
-                      style={{
-                        backgroundColor: sv.bg,
-                        color: sv.text,
-                      }}
-                    >
-                      {status === 'overdue'
-                        ? `${Math.abs(days)}d overdue`
-                        : `${days}d left`}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-secondary)' }}>
+                        {formatDate(p.expiry_date)}
+                      </p>
+                      <span
+                        className="text-[11px] px-2.5 py-1 rounded-full font-bold whitespace-nowrap"
+                        style={{
+                          backgroundColor: sv.bg,
+                          color: sv.text,
+                        }}
+                      >
+                        {status === 'overdue'
+                          ? `${Math.abs(days)}d overdue`
+                          : `${days}d left`}
+                      </span>
+                    </div>
+                    {status === 'approaching' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setRenewalTarget(p)
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors"
+                      >
+                        Mark as Renewed
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -312,9 +335,20 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Renewal Dialog */}
+      {renewalTarget && (
+        <RenewalDialog
+          policy={renewalTarget}
+          customer={renewalTarget.customer}
+          onClose={() => setRenewalTarget(null)}
+          onRenew={handleRenewal}
+        />
+      )}
+
+      {/* Edit Insurance Form */}
       {formOpen && (
         <CustomerForm
-          isOpen={formOpen}
+          open={formOpen}
           onClose={() => setFormOpen(false)}
           mode={formMode}
         />

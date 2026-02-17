@@ -3,6 +3,7 @@ import {
   fetchCustomers, addCustomer, updateCustomer, deleteCustomer,
   fetchInsurances, addInsurance as apiAddInsurance,
   updateInsurance as apiUpdateInsurance, deleteInsurance as apiDeleteInsurance,
+  acknowledgeRenewal,
 } from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -89,11 +90,43 @@ export function CustomerProvider({ children }) {
     toast.success('Insurance deleted successfully')
   }
 
+  const acknowledgePolicy = async (id) => {
+    // Optimistically update local state to hide it instantly
+    setInsurances((prev) => prev.map((ins) =>
+      ins.id === id ? { ...ins, renewal_acknowledged: 1 } : ins
+    ))
+
+    // Call API in background
+    try {
+      await acknowledgeRenewal(id)
+    } catch (err) {
+      // Revert if failed
+      setInsurances((prev) => prev.map((ins) =>
+        ins.id === id ? { ...ins, renewal_acknowledged: 0 } : ins
+      ))
+      toast.error('Failed to acknowledge: ' + err.message)
+      throw err
+    }
+  }
+
   // ─── Computed helpers ──────────────────────────────────────
 
+  // Pre-index insurances by customer_id for O(1) lookups instead of O(N) filtering
+  const insurancesByCustomer = useMemo(() => {
+    const map = new Map()
+    insurances.forEach((ins) => {
+      const customerId = ins.customer_id
+      if (!map.has(customerId)) {
+        map.set(customerId, [])
+      }
+      map.get(customerId).push(ins)
+    })
+    return map
+  }, [insurances])
+
   const getCustomerInsurances = useCallback(
-    (customerId) => insurances.filter((ins) => ins.customer_id === customerId),
-    [insurances]
+    (customerId) => insurancesByCustomer.get(customerId) || [],
+    [insurancesByCustomer]
   )
 
   const value = useMemo(() => ({
@@ -107,6 +140,7 @@ export function CustomerProvider({ children }) {
     addInsurance: addIns,
     updateInsurance: updateIns,
     removeInsurance: removeIns,
+    acknowledgePolicy,
     getCustomerInsurances,
   }), [customers, insurances, loading, load, getCustomerInsurances])
 

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import {
     ArrowLeft, MapPin, Phone, IndianRupee, Edit2, Trash2, Plus,
-    ShieldCheck, Clock, AlertTriangle, ExternalLink, Mail, CreditCard, Hash
+    ShieldCheck, Clock, AlertTriangle, ExternalLink, Mail, CreditCard
 } from 'lucide-react'
 import { useCustomers } from '../context/CustomerContext'
 import {

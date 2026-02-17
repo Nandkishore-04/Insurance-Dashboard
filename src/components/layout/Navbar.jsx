@@ -75,6 +75,7 @@ export default function Navbar({ onMenuClick }) {
               placeholder="Search customers..."
               className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-[var(--text-muted)]"
               style={{ color: 'var(--text-primary)' }}
+              autoComplete="off"
               aria-label="Search customers"
               data-testid="input-navbar-search"
             />

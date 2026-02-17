@@ -105,10 +105,10 @@ function selectStyle(error, hasValue) {
   }
 }
 
-export default function CustomerForm({ open, onClose, mode }) {
+export default function CustomerForm({ open, onClose, mode, asModal = true }) {
   const { customers, add, update, addInsurance, updateInsurance } = useCustomers()
 
-  const [step, setStep] = useState(1)
+  const [_step, setStep] = useState(1)
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [isNewCustomer, setIsNewCustomer] = useState(false)
@@ -281,14 +281,6 @@ export default function CustomerForm({ open, onClose, mode }) {
     setErrors({})
   }
 
-  const handleNewCustomer = () => {
-    setSelectedCustomer(null)
-    setIsNewCustomer(true)
-    setCustomerForm(emptyCustomer)
-    setErrors({})
-    setCustomerSearch('')
-  }
-
   const handleSubmitEditCustomer = async (e) => {
     e.preventDefault()
     if (!validateCustomer()) return
@@ -432,7 +424,13 @@ export default function CustomerForm({ open, onClose, mode }) {
   const insuranceType = insuranceForm.insurance_type
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[var(--bg-secondary)]" role="dialog" aria-modal="true" aria-labelledby="form-title" data-testid="customer-form-dialog">
+    <div
+      className={asModal ? "fixed inset-0 z-[100] flex flex-col bg-[var(--bg-secondary)]" : "flex flex-col bg-[var(--bg-secondary)] rounded-2xl overflow-hidden"}
+      role="dialog"
+      aria-modal={asModal ? "true" : undefined}
+      aria-labelledby="form-title"
+      data-testid="customer-form-dialog"
+    >
       <div
         className="flex-1 flex flex-col overflow-hidden"
       >

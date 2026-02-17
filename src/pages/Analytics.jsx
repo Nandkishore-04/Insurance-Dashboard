@@ -7,8 +7,10 @@ import {
 } from 'recharts'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
-import { Download } from 'lucide-react'
+import { Download, Database } from 'lucide-react'
 import { useCustomers } from '../context/CustomerContext'
+import { seedLargeData } from '../lib/api'
+import toast from 'react-hot-toast'
 import EmptyState from '../components/EmptyState'
 import {
   INSURANCE_TYPES, INSURANCE_COLORS,
@@ -172,6 +174,19 @@ export default function Analytics() {
     doc.save('insurance_analytics_report.pdf')
   }
 
+  const handleSeed = async () => {
+    if (!window.confirm('This will add 10,000 dummy records. Continue?')) return
+    const toastId = toast.loading('Generating 10k records...')
+    try {
+      await seedLargeData(10000)
+      toast.success('Data seeded successfully!', { id: toastId })
+      window.location.reload()
+    } catch (err) {
+      console.error(err)
+      toast.error(`Failed: ${err.message}`, { id: toastId })
+    }
+  }
+
   if (loading) return <LoadingSkeleton />
 
   const statCards = [
@@ -189,12 +204,20 @@ export default function Analytics() {
             Detailed insights into your insurance portfolio
           </p>
         </div>
-        <button
-          onClick={exportPDF}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-md shadow-primary-500/25"
-        >
-          <Download className="w-4 h-4" aria-hidden="true" /> Download Report
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSeed}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gray-800 text-white hover:bg-gray-700 transition-all duration-200 shadow-md"
+          >
+            <Database className="w-4 h-4" aria-hidden="true" /> Seed 10k Data
+          </button>
+          <button
+            onClick={exportPDF}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-md shadow-primary-500/25"
+          >
+            <Download className="w-4 h-4" aria-hidden="true" /> Download Report
+          </button>
+        </div>
       </div>
 
       {/* Summary Stats */}

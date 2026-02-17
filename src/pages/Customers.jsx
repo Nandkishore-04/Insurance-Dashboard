@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List as VirtualList } from 'react-window'
+import { List } from 'react-window'
 import {
   Plus, Search, Edit2, Trash2, Eye, Filter, Users, FileText,
   ChevronUp, ChevronDown, ChevronRight, Clock, AlertTriangle, ShieldCheck,
@@ -60,10 +60,11 @@ export default function Customers() {
   const [sortAsc, setSortAsc] = useState(true)
   const [expanded, setExpanded] = useState({})
 
-  // Sync from URL params
+  // Sync from URL params (intentional: reads external URL state into component state)
   useEffect(() => {
     const q = searchParams.get('search')
     const s = searchParams.get('status')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (q !== null) setSearch(q)
     if (s !== null) setStatusFilter(s)
     if (q !== null || s !== null) {
@@ -143,7 +144,7 @@ export default function Customers() {
     else { setSortKey(key); setSortAsc(true) }
   }
 
-  const toggleExpand = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+  const toggleExpand = useCallback((id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] })), [])
 
   // Virtualization support
   const containerRef = useRef(null)
@@ -172,25 +173,24 @@ export default function Customers() {
     return () => window.removeEventListener('resize', updateHeight)
   }, [loading])
 
-  const handleAddInsurance = (customerId) => {
+  const handleAddInsurance = useCallback((customerId) => {
     setFormMode({ type: 'addInsurance', customerId })
     setFormOpen(true)
-  }
+  }, [])
 
-  const handleEditInsurance = (insurance) => {
+  const handleEditInsurance = useCallback((insurance) => {
     setFormMode({ type: 'editInsurance', insurance })
     setFormOpen(true)
-  }
+  }, [])
 
-  const handleEditCustomer = (customer) => {
+  const handleEditCustomer = useCallback((customer) => {
     setFormMode({ type: 'editCustomer', customer })
     setFormOpen(true)
-  }
+  }, [])
 
-  const handleNewCustomer = () => {
-    setFormMode(null)
-    setFormOpen(true)
-  }
+  const handleNewCustomer = useCallback(() => {
+    navigate('/customers/add')
+  }, [navigate])
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -295,6 +295,7 @@ export default function Customers() {
             placeholder="Search by name, phone, code, or address..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
             className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-[var(--text-muted)]"
             style={{ color: 'var(--text-primary)' }}
             aria-label="Search customers by name, phone, code, or address"
@@ -371,23 +372,27 @@ export default function Customers() {
             </div>
 
             {/* Virtualized Rows */}
-            <VirtualList
-              style={{ height: listHeight }}
+            <List
+              style={{ height: listHeight, width: '100%' }}
               rowCount={filtered.length}
               rowHeight={getItemSize}
-              overscanCount={10}
-              rowComponent={VirtualRowWrapper}
-              rowProps={{
-                filtered,
-                expanded,
-                navigate,
-                toggleExpand,
-                handleEditCustomer,
-                setDeleteTarget,
-                handleAddInsurance,
-                handleEditInsurance,
-              }}
-            />
+              overscanCount={5}
+            >
+              {({ index, style }) => (
+                <VirtualRowWrapper
+                  index={index}
+                  style={style}
+                  filtered={filtered}
+                  expanded={expanded}
+                  navigate={navigate}
+                  toggleExpand={toggleExpand}
+                  handleEditCustomer={handleEditCustomer}
+                  setDeleteTarget={setDeleteTarget}
+                  handleAddInsurance={handleAddInsurance}
+                  handleEditInsurance={handleEditInsurance}
+                />
+              )}
+            </List>
           </>
         )}
 
@@ -480,7 +485,7 @@ const GRID_COLS = '40px minmax(200px,2fr) minmax(100px,1fr) 100px 140px 110px 16
 
 // ─── Virtual row wrapper for react-window v2 ──────────────────
 // react-window v2 passes: { ...rowProps, index, style, ariaAttributes }
-function VirtualRowWrapper({
+const VirtualRowWrapper = React.memo(function VirtualRowWrapper({
   index, style,
   filtered, expanded, navigate, toggleExpand,
   handleEditCustomer, setDeleteTarget, handleAddInsurance, handleEditInsurance,
@@ -503,11 +508,11 @@ function VirtualRowWrapper({
       />
     </div>
   )
-}
+})
 
 // ─── Virtualized desktop customer row (div-based grid) ───────────
 
-function VirtualCustomerRow({
+const VirtualCustomerRow = React.memo(function VirtualCustomerRow({
   customer: c, isExpanded, isEven, onToggle,
   onView, onEditCustomer, onDeleteCustomer, onAddPolicy,
   onEditPolicy, onDeletePolicy,
@@ -672,11 +677,11 @@ function VirtualCustomerRow({
       )}
     </div>
   )
-}
+})
 
 // ─── Mobile customer card ────────────────────────────────────
 
-function MobileCustomerCard({
+const MobileCustomerCard = React.memo(function MobileCustomerCard({
   customer: c, expanded: isExpanded, onToggle,
   onView, onEditCustomer, onDeleteCustomer, onAddPolicy,
   onEditPolicy, onDeletePolicy,
@@ -787,4 +792,4 @@ function MobileCustomerCard({
       )}
     </div>
   )
-}
+})

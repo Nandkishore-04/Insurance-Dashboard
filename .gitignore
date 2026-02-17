@@ -27,3 +27,16 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# Build artifacts
+nul
+.eslintcache
+out/

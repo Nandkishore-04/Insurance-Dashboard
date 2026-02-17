@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './context/ThemeContext'
@@ -5,11 +6,14 @@ import { CustomerProvider } from './context/CustomerContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
-import Customers from './pages/Customers'
-import Analytics from './pages/Analytics'
-import CustomerProfile from './pages/CustomerProfile'
 import Login from './pages/Login'
-import BackupRestore from './pages/BackupRestore'
+
+// Lazy-load non-landing pages — only fetched when navigated to
+const Customers = lazy(() => import('./pages/Customers'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const CustomerProfile = lazy(() => import('./pages/CustomerProfile'))
+const AddCustomer = lazy(() => import('./pages/AddCustomer'))
+const BackupRestore = lazy(() => import('./pages/BackupRestore'))
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
@@ -19,16 +23,19 @@ function AppRoutes() {
   if (!isAuthenticated) return <Login />
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/customer/:id" element={<CustomerProfile />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/settings" element={<BackupRestore />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={null}>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/customers/add" element={<AddCustomer />} />
+          <Route path="/customer/:id" element={<CustomerProfile />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<BackupRestore />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 

@@ -188,7 +188,7 @@ export default function BackupRestore() {
         >
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
           <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-            Backup and restore features require the desktop (Electron) version of InsureTrack.
+            Backup and restore features require the desktop (Electron) version of Insurance Tracking.
           </p>
         </div>
       )}

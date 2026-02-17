@@ -42,7 +42,7 @@ export default function Sidebar({ open, onClose }) {
             <Shield className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
           <span className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            InsureTrack
+            Insurance Tracking
           </span>
           <button
             onClick={onClose}
@@ -88,7 +88,7 @@ export default function Sidebar({ open, onClose }) {
             color: 'var(--text-muted)',
           }}
         >
-          InsureTrack v1.0
+          Insurance Tracking v1.0.4
         </div>
       </aside>
     </>
