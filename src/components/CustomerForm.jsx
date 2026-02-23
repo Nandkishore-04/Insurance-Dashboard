@@ -87,6 +87,22 @@ function Field({ label, required, error, children }) {
   )
 }
 
+// PAN format: AAAAA9999A — 5 letters, 4 digits, 1 letter
+function formatPAN(raw) {
+  const v = raw.toUpperCase()
+  let result = ''
+  for (let i = 0; i < v.length && result.length < 10; i++) {
+    const ch = v[i]
+    const pos = result.length
+    if (pos < 5 || pos === 9) {
+      if (/[A-Z]/.test(ch)) result += ch
+    } else {
+      if (/\d/.test(ch)) result += ch
+    }
+  }
+  return result
+}
+
 const inputClass = "w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200"
 
 function inputStyle(error) {
@@ -214,16 +230,28 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
     const errs = {}
     if (!customerForm.name.trim()) errs.name = 'Name is required'
 
-    // Phone validation (10 digits)
+    // Phone validation (exactly 10 digits)
     const phone = customerForm.phone.trim()
     if (phone && !/^\d{10}$/.test(phone)) {
-      errs.phone = 'Phone number must be exactly 10 digits'
+      errs.phone = 'Phone must be exactly 10 digits'
     }
 
     // PAN validation (5 letters, 4 digits, 1 letter)
     const pan = customerForm.pan_number.trim().toUpperCase()
     if (pan && !/^[A-Z]{5}\d{4}[A-Z]{1}$/.test(pan)) {
-      errs.pan_number = 'Invalid PAN format (e.g., ABCDE1234F)'
+      errs.pan_number = 'Invalid PAN (e.g. ABCDE1234F)'
+    }
+
+    // Aadhar validation (exactly 12 digits)
+    const aadhar = customerForm.aadhar_number.trim()
+    if (aadhar && !/^\d{12}$/.test(aadhar)) {
+      errs.aadhar_number = 'Aadhar must be exactly 12 digits'
+    }
+
+    // Nominee PAN validation
+    const nomineePan = customerForm.nominee_pan.trim().toUpperCase()
+    if (nomineePan && !/^[A-Z]{5}\d{4}[A-Z]{1}$/.test(nomineePan)) {
+      errs.nominee_pan = 'Invalid PAN (e.g. ABCDE1234F)'
     }
 
     setErrors(errs)
@@ -1000,8 +1028,10 @@ function CustomerFormSection({ form, setForm, errors, isStep1 }) {
           </select>
         </Field>
         <Field label="Mobile Number" error={errors.phone}>
-          <input type="text" value={form.phone} onChange={(e) => setForm('phone', e.target.value)}
-            className={inputClass} style={inputStyle(errors.phone)} placeholder="9876543210" data-testid="input-customer-phone" />
+          <input type="text" value={form.phone}
+            onChange={(e) => setForm('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+            className={inputClass} style={inputStyle(errors.phone)} placeholder="9876543210"
+            maxLength={10} inputMode="numeric" data-testid="input-customer-phone" />
         </Field>
         <Field label="Email Address">
           <input type="email" value={form.email} onChange={(e) => setForm('email', e.target.value)}
@@ -1015,12 +1045,16 @@ function CustomerFormSection({ form, setForm, errors, isStep1 }) {
             className={inputClass} style={inputStyle()} placeholder="City Name" />
         </Field>
         <Field label="PAN Number" error={errors.pan_number}>
-          <input type="text" value={form.pan_number} onChange={(e) => setForm('pan_number', e.target.value.toUpperCase())}
-            className={inputClass} style={inputStyle(errors.pan_number)} placeholder="ABCDE1234F" data-testid="input-customer-pan" />
+          <input type="text" value={form.pan_number}
+            onChange={(e) => setForm('pan_number', formatPAN(e.target.value))}
+            className={inputClass} style={inputStyle(errors.pan_number)} placeholder="ABCDE1234F"
+            maxLength={10} data-testid="input-customer-pan" />
         </Field>
-        <Field label="Aadhar Number">
-          <input type="text" value={form.aadhar_number} onChange={(e) => setForm('aadhar_number', e.target.value)}
-            className={inputClass} style={inputStyle()} placeholder="1234 5678 9012" />
+        <Field label="Aadhar Number" error={errors.aadhar_number}>
+          <input type="text" value={form.aadhar_number}
+            onChange={(e) => setForm('aadhar_number', e.target.value.replace(/\D/g, '').slice(0, 12))}
+            className={inputClass} style={inputStyle(errors.aadhar_number)} placeholder="123456789012"
+            maxLength={12} inputMode="numeric" />
         </Field>
       </div>
       <Field label="Full Address">
@@ -1063,9 +1097,11 @@ function CustomerFormSection({ form, setForm, errors, isStep1 }) {
             className={inputClass} style={inputStyle()} />
         </Field>
         <div className="md:col-span-2">
-          <Field label="Nominee PAN">
-            <input type="text" value={form.nominee_pan} onChange={(e) => setForm('nominee_pan', e.target.value.toUpperCase())}
-              className={inputClass} style={inputStyle()} placeholder="ABCDE1234F" />
+          <Field label="Nominee PAN" error={errors.nominee_pan}>
+            <input type="text" value={form.nominee_pan}
+              onChange={(e) => setForm('nominee_pan', formatPAN(e.target.value))}
+              className={inputClass} style={inputStyle(errors.nominee_pan)} placeholder="ABCDE1234F"
+              maxLength={10} />
           </Field>
         </div>
       </div>

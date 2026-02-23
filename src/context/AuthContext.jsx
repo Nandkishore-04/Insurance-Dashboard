@@ -47,7 +47,13 @@ export function AuthProvider({ children }) {
 
         users.push(userData)
         localStorage.setItem('users', JSON.stringify(users))
-        toast.success('Account created successfully')
+
+        // Auto-login after registration
+        const sessionUser = { username: userData.username, name: userData.name }
+        localStorage.setItem('loggedUser', JSON.stringify(sessionUser))
+        setUser(sessionUser)
+
+        toast.success(`Welcome, ${userData.name}!`)
         return true
     }
 

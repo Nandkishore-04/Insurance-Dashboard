@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun, Menu, Search, X, LogOut } from 'lucide-react'
+import { Moon, Sun, Menu, Search, X } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
-import { useAuth } from '../../context/AuthContext'
 
 export default function Navbar({ onMenuClick }) {
   const { dark, toggle } = useTheme()
-  const { logout, user } = useAuth()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
@@ -117,18 +115,8 @@ export default function Navbar({ onMenuClick }) {
 
         <div className="w-px h-8 mx-1" style={{ backgroundColor: 'var(--border-color)' }} aria-hidden="true" />
 
-        <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl group cursor-pointer" onClick={logout} data-testid="btn-logout">
-          <div className="relative">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-primary-500/30 transition-shadow">
-              {user?.name?.charAt(0) || 'A'}
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[var(--bg-card)] border-2 border-[var(--bg-card)] flex items-center justify-center rounded-full shadow-sm text-red-500 bg-red-500">
-              <LogOut className="w-2.5 h-2.5 text-white" />
-            </div>
-          </div>
-          <div className="hidden md:block text-left">
-            <p className="text-xs font-semibold leading-none group-hover:text-red-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Admin'}</p>
-          </div>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+          A
         </div>
       </div>
     </header>

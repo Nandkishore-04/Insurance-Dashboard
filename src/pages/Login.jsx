@@ -21,8 +21,8 @@ export default function Login() {
     const handleRegister = (e) => {
         e.preventDefault()
         if (!username || !password || !name) return
-        const success = register({ username, password, name })
-        if (success) setIsSetup(false)
+        register({ username, password, name })
+        // register() auto-logs in on success — AppRoutes handles the redirect
     }
 
     return (
