@@ -1,7 +1,7 @@
 {
   "name": "insurance-tracking",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Insurance Tracking - Insurance Management Dashboard",
   "author": "Insurance Tracking",
   "main": "main.cjs",
