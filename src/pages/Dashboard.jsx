@@ -168,9 +168,9 @@ export default function Dashboard() {
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <MetricCard icon={Users} label="Total Customers" value={stats.totalCustomers} color="#059669" subtext={`${stats.totalPolicies} policies`} onClick={() => navigate('/customers')} />
-        <MetricCard icon={Clock} label="Approaching" value={stats.approaching} color="#f59e0b" subtext="Within 30 days" onClick={() => navigate('/customers?status=approaching')} />
+        <MetricCard icon={Clock} label="Approaching" value={stats.approaching} color="#f59e0b" subtext="Within 60 days" onClick={() => navigate('/customers?status=approaching')} />
         <MetricCard icon={AlertTriangle} label="Overdue" value={stats.overdue} color="#ef4444" subtext="Past deadline" onClick={() => navigate('/customers?status=overdue')} />
-        <MetricCard icon={ShieldCheck} label="Active" value={stats.active} color="#0891b2" subtext="30+ days left" onClick={() => navigate('/customers?status=active')} />
+        <MetricCard icon={ShieldCheck} label="Active" value={stats.active} color="#0891b2" subtext="60+ days left" onClick={() => navigate('/customers?status=active')} />
       </div>
 
       {/* Charts Row */}

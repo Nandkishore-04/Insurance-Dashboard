@@ -1,18 +1,17 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List } from 'react-window'
 import {
-  Plus, Search, Edit2, Trash2, Eye, Filter, Users, FileText,
-  ChevronUp, ChevronDown, ChevronRight, Clock, AlertTriangle, ShieldCheck,
+  Plus, Search, Edit2, Trash2, Eye, Filter, FileText,
+  ChevronUp, ChevronDown, ChevronRight,
 } from 'lucide-react'
+// react-window v2 removed — simple scroll with CSS containment for perf
 import { useCustomers } from '../context/CustomerContext'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import toast from 'react-hot-toast'
 import CustomerForm from '../components/CustomerForm'
 import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
 import {
-  INSURANCE_TYPES, getDaysUntilDeadline, getDeadlineStatus,
+  getDaysUntilDeadline, getDeadlineStatus,
   formatDate, formatCurrency,
 } from '../lib/constants'
 
@@ -55,10 +54,17 @@ export default function Customers() {
   const [formMode, setFormMode] = useState(null) // { type: 'addInsurance', customerId } | { type: 'editInsurance', insurance } | { type: 'editCustomer', customer } | null
   const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'customer', item } | { type: 'insurance', item }
   const [search, setSearch] = useState(searchParams.get('search') || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [sortKey, setSortKey] = useState('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [expanded, setExpanded] = useState({})
+
+  // Debounce search — 300ms delay so typing doesn't trigger re-filter on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   // Sync from URL params (intentional: reads external URL state into component state)
   useEffect(() => {
@@ -91,8 +97,8 @@ export default function Customers() {
 
   const filtered = useMemo(() => {
     let result = [...enriched]
-    if (search.trim()) {
-      const q = search.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter((c) => {
         const matchesCustomer =
           c.name.toLowerCase().includes(q) ||
@@ -129,10 +135,24 @@ export default function Customers() {
       if (sortKey === 'name') cmp = a.name.localeCompare(b.name)
       else if (sortKey === 'policies') cmp = a.policyCount - b.policyCount
       else if (sortKey === 'premium') cmp = a.totalPremium - b.totalPremium
+      else if (sortKey === 'dueDate') {
+        const aDate = a.policies.reduce((earliest, p) => {
+          if (!p.expiry_date) return earliest
+          return !earliest || p.expiry_date < earliest ? p.expiry_date : earliest
+        }, null)
+        const bDate = b.policies.reduce((earliest, p) => {
+          if (!p.expiry_date) return earliest
+          return !earliest || p.expiry_date < earliest ? p.expiry_date : earliest
+        }, null)
+        if (!aDate && !bDate) cmp = 0
+        else if (!aDate) cmp = 1
+        else if (!bDate) cmp = -1
+        else cmp = aDate.localeCompare(bDate)
+      }
       return sortAsc ? cmp : -cmp
     })
     return result
-  }, [enriched, search, statusFilter, sortKey, sortAsc])
+  }, [enriched, debouncedSearch, statusFilter, sortKey, sortAsc])
 
   const totalPremium = useMemo(
     () => filtered.reduce((sum, c) => sum + c.totalPremium, 0),
@@ -144,34 +164,10 @@ export default function Customers() {
     else { setSortKey(key); setSortAsc(true) }
   }
 
-  const toggleExpand = useCallback((id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] })), [])
+  const toggleExpand = useCallback((id) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+  }, [])
 
-  // Virtualization support
-  const containerRef = useRef(null)
-  const [listHeight, setListHeight] = useState(600)
-
-  const ROW_HEIGHT = 56
-  const POLICY_ROW_HEIGHT = 48
-
-  const getItemSize = useCallback((index) => {
-    const c = filtered[index]
-    if (!expanded[c.id]) return ROW_HEIGHT
-    if (c.policies.length === 0) return ROW_HEIGHT + POLICY_ROW_HEIGHT
-    return ROW_HEIGHT + c.policies.length * POLICY_ROW_HEIGHT
-  }, [filtered, expanded])
-
-  // Calculate available height for virtual list
-  useEffect(() => {
-    const updateHeight = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setListHeight(Math.max(300, window.innerHeight - rect.top - 100))
-      }
-    }
-    updateHeight()
-    window.addEventListener('resize', updateHeight)
-    return () => window.removeEventListener('resize', updateHeight)
-  }, [loading])
 
   const handleAddInsurance = useCallback((customerId) => {
     setFormMode({ type: 'addInsurance', customerId })
@@ -192,6 +188,13 @@ export default function Customers() {
     navigate('/customers/add')
   }, [navigate])
 
+  // Listen for Ctrl+P export PDF shortcut from main process
+  useEffect(() => {
+    const handler = () => exportPDF()
+    window.addEventListener('app:export-pdf', handler)
+    return () => window.removeEventListener('app:export-pdf', handler)
+  }, [filtered, totalPremium])
+
   const handleDelete = async () => {
     if (!deleteTarget) return
     if (deleteTarget.type === 'customer') {
@@ -202,17 +205,11 @@ export default function Customers() {
     setDeleteTarget(null)
   }
 
-  const exportPDF = () => {
-    if (filtered.length === 0) return
-    const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text('Customer Insurance Portfolio', 14, 22)
-    doc.setFontSize(11)
-    doc.setTextColor(100)
-    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 30)
-    doc.text(`Total Premium: ${formatCurrency(totalPremium)}`, 14, 35)
-
-    const tableColumn = ['Customer', 'Code', 'Insurance Type', 'Premium', 'Expiry', 'Status']
+  const exportPDF = async () => {
+    if (filtered.length === 0) {
+      toast.error('No customers to export')
+      return
+    }
     const tableRows = []
     filtered.forEach((c) => {
       c.policies.forEach((p) => {
@@ -227,16 +224,31 @@ export default function Customers() {
         ])
       })
     })
+    if (tableRows.length === 0) {
+      toast.error('No policies found to export')
+      return
+    }
+    // Lazy-load jsPDF (350KB+ saved from initial bundle)
+    const { jsPDF } = await import('jspdf')
+    await import('jspdf-autotable')
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('Customer Insurance Portfolio', 14, 22)
+    doc.setFontSize(11)
+    doc.setTextColor(100)
+    doc.text(`Generated on: ${formatDate(new Date().toISOString())}`, 14, 30)
+    doc.text(`Total Premium: ${formatCurrency(totalPremium)}`, 14, 35)
 
     doc.autoTable({
-      head: [tableColumn],
+      head: [['Customer', 'Code', 'Insurance Type', 'Premium', 'Expiry', 'Status']],
       body: tableRows,
       startY: 45,
       theme: 'grid',
-      headStyles: { fillStyle: '#10b981', textColor: [255, 255, 255], fontStyle: 'bold' },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
       styles: { fontSize: 9, cellPadding: 3 },
     })
     doc.save('customers_portfolio.pdf')
+    toast.success('PDF downloaded')
   }
 
   const SortIcon = ({ field }) => {
@@ -320,11 +332,37 @@ export default function Customers() {
             <option value="overdue">Overdue</option>
           </select>
         </div>
+        <div className="flex items-center gap-2.5">
+          <select
+            value={sortKey}
+            onChange={(e) => { setSortKey(e.target.value); setSortAsc(true) }}
+            className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200 min-w-[150px]"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+            aria-label="Sort customers by"
+          >
+            <option value="name">Sort by Name</option>
+            <option value="policies">Sort by Policies</option>
+            <option value="premium">Sort by Premium</option>
+            <option value="dueDate">Sort by Due Date</option>
+          </select>
+          <button
+            onClick={() => setSortAsc((a) => !a)}
+            className="p-2.5 rounded-xl border transition-all duration-200 hover:bg-[var(--hover-bg)]"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+            aria-label={sortAsc ? 'Sort descending' : 'Sort ascending'}
+            title={sortAsc ? 'Ascending' : 'Descending'}
+          >
+            {sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
-      {/* Desktop Table (Virtualized) */}
+      {/* Desktop Table */}
       <div
-        ref={containerRef}
         className="rounded-2xl border overflow-hidden hidden sm:block"
         style={{
           backgroundColor: 'var(--bg-card)',
@@ -371,28 +409,24 @@ export default function Customers() {
               ))}
             </div>
 
-            {/* Virtualized Rows */}
-            <List
-              style={{ height: listHeight, width: '100%' }}
-              rowCount={filtered.length}
-              rowHeight={getItemSize}
-              overscanCount={5}
-            >
-              {({ index, style }) => (
-                <VirtualRowWrapper
-                  index={index}
-                  style={style}
-                  filtered={filtered}
-                  expanded={expanded}
-                  navigate={navigate}
-                  toggleExpand={toggleExpand}
-                  handleEditCustomer={handleEditCustomer}
-                  setDeleteTarget={setDeleteTarget}
-                  handleAddInsurance={handleAddInsurance}
-                  handleEditInsurance={handleEditInsurance}
+            {/* Scrollable rows with CSS containment for performance */}
+            <div style={{ maxHeight: 600, overflowY: 'auto', contain: 'layout style' }}>
+              {filtered.map((c, index) => (
+                <VirtualCustomerRow
+                  key={c.id}
+                  customer={c}
+                  isExpanded={!!expanded[c.id]}
+                  isEven={index % 2 === 0}
+                  onToggle={() => toggleExpand(c.id)}
+                  onView={() => navigate(`/customer/${c.id}`)}
+                  onEditCustomer={() => handleEditCustomer(c)}
+                  onDeleteCustomer={() => setDeleteTarget({ type: 'customer', item: c })}
+                  onAddPolicy={() => handleAddInsurance(c.id)}
+                  onEditPolicy={handleEditInsurance}
+                  onDeletePolicy={(p) => setDeleteTarget({ type: 'insurance', item: p })}
                 />
-              )}
-            </List>
+              ))}
+            </div>
           </>
         )}
 
@@ -483,32 +517,6 @@ export default function Customers() {
 // ─── Grid column template (shared between header and virtual rows) ───
 const GRID_COLS = '40px minmax(200px,2fr) minmax(100px,1fr) 100px 140px 110px 160px'
 
-// ─── Virtual row wrapper for react-window v2 ──────────────────
-// react-window v2 passes: { ...rowProps, index, style, ariaAttributes }
-const VirtualRowWrapper = React.memo(function VirtualRowWrapper({
-  index, style,
-  filtered, expanded, navigate, toggleExpand,
-  handleEditCustomer, setDeleteTarget, handleAddInsurance, handleEditInsurance,
-}) {
-  const c = filtered[index]
-  if (!c) return null
-  return (
-    <div style={style}>
-      <VirtualCustomerRow
-        customer={c}
-        isExpanded={expanded[c.id]}
-        isEven={index % 2 === 0}
-        onToggle={() => toggleExpand(c.id)}
-        onView={() => navigate(`/customer/${c.id}`)}
-        onEditCustomer={() => handleEditCustomer(c)}
-        onDeleteCustomer={() => setDeleteTarget({ type: 'customer', item: c })}
-        onAddPolicy={() => handleAddInsurance(c.id)}
-        onEditPolicy={handleEditInsurance}
-        onDeletePolicy={(p) => setDeleteTarget({ type: 'insurance', item: p })}
-      />
-    </div>
-  )
-})
 
 // ─── Virtualized desktop customer row (div-based grid) ───────────
 

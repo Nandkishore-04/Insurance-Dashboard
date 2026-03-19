@@ -1,0 +1,42 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Vibrant Gradient for the Shield -->
+    <linearGradient id="shieldGrad" x1="256" y1="60" x2="256" y2="452" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/> <!-- Emerald 400 -->
+      <stop offset="1" stop-color="#059669"/> <!-- Emerald 600 -->
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow for depth -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity="0.15"/>
+    </filter>
+
+    <!-- Glassy Overlay for that 'Fancy' look -->
+    <linearGradient id="glass" x1="120" y1="80" x2="392" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.2"/>
+      <stop offset="0.5" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main Shield -->
+  <path d="M256 60L100 120V240C100 341.2 165.6 434.8 256 460C346.4 434.8 412 341.2 412 240V120L256 60Z" 
+        fill="url(#shieldGrad)" 
+        filter="url(#shadow)"/>
+
+  <!-- Subtle Inner Border for refinement -->
+  <path d="M256 85L125 136V240C125 328.2 178.2 410.4 256 434C333.8 410.4 387 328.2 387 240V136L256 85Z" 
+        stroke="white" 
+        stroke-width="2" 
+        stroke-opacity="0.2"/>
+
+  <!-- Simple Checkmark with slight glow -->
+  <path d="M190 270L240 320L340 220" 
+        stroke="white" 
+        stroke-width="38" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+
+  <!-- The 'Fancy' Shine -->
+  <path d="M256 60L100 120V240C100 245 105 250 110 250C200 250 350 150 412 120L256 60Z" 
+        fill="url(#glass)"/>
+</svg>

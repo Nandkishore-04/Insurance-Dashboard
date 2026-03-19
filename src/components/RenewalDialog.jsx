@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X, Check, AlertCircle } from 'lucide-react'
 import { useCustomers } from '../context/CustomerContext'
+import { formatDate } from '../lib/constants'
 import toast from 'react-hot-toast'
 
 export default function RenewalDialog({ policy, customer, onClose, onRenew }) {
@@ -91,7 +92,7 @@ export default function RenewalDialog({ policy, customer, onClose, onRenew }) {
                         Insurer: {policy.insurer || 'N/A'} • Premium: ₹{policy.premium?.toLocaleString('en-IN') || '0'}
                     </p>
                     <p className="text-xs font-medium mt-1" style={{ color: 'var(--text-muted)' }}>
-                        Expiry: {new Date(policy.expiry_date).toLocaleDateString('en-IN')}
+                        Expiry: {formatDate(policy.expiry_date)}
                     </p>
                 </div>
 

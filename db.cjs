@@ -41,7 +41,8 @@ function initDB() {
     const columns = db.prepare("PRAGMA table_info(customers)").all().map(c => c.name)
     const requiredColumns = [
       'dob', 'sex', 'aadhar_number', 'pob', 'father_name', 'mother_name',
-      'spouse_name', 'nominee', 'nominee_dob', 'nominee_pan', 'relation', 'email', 'pan_number'
+      'spouse_name', 'nominee', 'nominee_dob', 'nominee_pan', 'relation', 'email', 'pan_number',
+      'name_as_per_it'
     ]
     requiredColumns.forEach(col => {
       if (!columns.includes(col)) {
@@ -106,21 +107,27 @@ function getAllCustomers() {
   return db.prepare('SELECT * FROM customers ORDER BY created_at DESC').all()
 }
 
+function getCustomerCount() {
+  return db.prepare('SELECT COUNT(*) as count FROM customers').get().count
+}
+
 function getCustomer(id) {
   return db.prepare('SELECT * FROM customers WHERE id = ?').get(id)
 }
 
 async function addCustomer(data) {
   const id = crypto.randomUUID()
-  const cust_code = await generateCustCode(data.name)
+  const cust_code = (data.cust_code && data.cust_code.trim())
+    ? data.cust_code.trim().toUpperCase()
+    : await generateCustCode(data.name)
   db.prepare(`
     INSERT INTO customers (
-      id, cust_code, name, phone, address, dob, sex, email, 
-      pan_number, aadhar_number, pob, father_name, mother_name, 
+      id, cust_code, name, name_as_per_it, phone, address, dob, sex, email,
+      pan_number, aadhar_number, pob, father_name, mother_name,
       spouse_name, nominee, nominee_dob, nominee_pan, relation
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    id, cust_code, data.name, data.phone || null, data.address || null,
+    id, cust_code, data.name, data.name_as_per_it || null, data.phone || null, data.address || null,
     data.dob || null, data.sex || null, data.email || null, data.pan_number || null,
     data.aadhar_number || null, data.pob || null, data.father_name || null,
     data.mother_name || null, data.spouse_name || null, data.nominee || null,
@@ -131,14 +138,14 @@ async function addCustomer(data) {
 
 function updateCustomer(id, data) {
   db.prepare(`
-    UPDATE customers SET 
-      name = ?, phone = ?, address = ?, dob = ?, sex = ?, email = ?, 
-      pan_number = ?, aadhar_number = ?, pob = ?, father_name = ?, 
-      mother_name = ?, spouse_name = ?, nominee = ?, nominee_dob = ?, 
-      nominee_pan = ?, relation = ? 
+    UPDATE customers SET
+      name = ?, name_as_per_it = ?, phone = ?, address = ?, dob = ?, sex = ?, email = ?,
+      pan_number = ?, aadhar_number = ?, pob = ?, father_name = ?,
+      mother_name = ?, spouse_name = ?, nominee = ?, nominee_dob = ?,
+      nominee_pan = ?, relation = ?
     WHERE id = ?
   `).run(
-    data.name, data.phone || null, data.address || null, data.dob || null,
+    data.name, data.name_as_per_it || null, data.phone || null, data.address || null, data.dob || null,
     data.sex || null, data.email || null, data.pan_number || null,
     data.aadhar_number || null, data.pob || null, data.father_name || null,
     data.mother_name || null, data.spouse_name || null, data.nominee || null,
@@ -152,7 +159,11 @@ function deleteCustomer(id) {
 }
 
 function parseInsuranceRow(row) {
-  return { ...row, details: row.details ? JSON.parse(row.details) : {} }
+  let details = {}
+  if (row.details) {
+    try { details = JSON.parse(row.details) } catch { details = {} }
+  }
+  return { ...row, details }
 }
 
 function getInsurances(customerId) {
@@ -220,8 +231,8 @@ async function seedTestData() {
     const cust_code = await generateCustCode(c.name)
 
     db.prepare(`
-      INSERT INTO customers (id, cust_code, name, phone, address, dob, email, pan_number) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO customers (id, cust_code, name, phone, address, dob, email, pan_number)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customerId, cust_code, c.name, c.phone, c.address, `19${90 - i}-01-01`, c.email, c.pan_number
     )
@@ -363,7 +374,7 @@ function importDB(srcPath) {
 
 function getBackupDir() {
   const documentsPath = app.getPath('documents')
-  return path.join(documentsPath, 'Insurance Tracking Backups')
+  return path.join(documentsPath, 'Insurance Tracking')
 }
 
 function toCsvRow(values) {
@@ -419,9 +430,18 @@ function autoBackup() {
   return { success: true, path: todayDir, date: today }
 }
 
+function closeDB() {
+  if (db) {
+    db.close()
+    db = null
+  }
+}
+
 module.exports = {
   initDB,
+  closeDB,
   getAllCustomers,
+  getCustomerCount,
   getCustomer,
   addCustomer,
   updateCustomer,

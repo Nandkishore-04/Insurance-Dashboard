@@ -11,10 +11,15 @@ const webAPI = {
 
   addCustomer: (customer) => {
     const customers = getLS('customers')
-    const letter = (customer.name || 'A')[0].toUpperCase()
-    const existing = customers.filter(c => c.cust_code?.startsWith(letter))
-    const num = String(existing.length + 1).padStart(4, '0')
-    const row = { ...customer, id: crypto.randomUUID(), cust_code: `${letter}${num}`, created_at: new Date().toISOString() }
+    let cust_code
+    if (customer.cust_code && customer.cust_code.trim()) {
+      cust_code = customer.cust_code.trim().toUpperCase()
+    } else {
+      const letter = (customer.name || 'A')[0].toUpperCase()
+      const existing = customers.filter(c => c.cust_code?.startsWith(letter))
+      cust_code = `${letter}${String(existing.length + 1).padStart(4, '0')}`
+    }
+    const row = { ...customer, id: crypto.randomUUID(), cust_code, created_at: new Date().toISOString() }
     setLS('customers', [row, ...customers])
     return Promise.resolve(row)
   },
@@ -66,6 +71,8 @@ const webAPI = {
     setLS('insurances', insurances)
     return Promise.resolve(insurances.find(i => i.id === id))
   },
+
+  seedLargeData: (count) => window.electronAPI.seedLargeData(count),
 }
 
 const api = window.electronAPI || webAPI
@@ -112,4 +119,8 @@ export async function acknowledgeRenewal(id) {
 
 export async function deleteInsurance(id) {
   return api.deleteInsurance(id)
+}
+
+export async function seedLargeData(count) {
+  return api.seedLargeData(count)
 }

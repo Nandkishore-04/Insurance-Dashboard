@@ -1,19 +1,15 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IndianRupee, TrendingUp, PieChart as PieIcon, Users } from 'lucide-react'
+import { IndianRupee, TrendingUp, PieChart as PieIcon } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area,
 } from 'recharts'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
-import { Download } from 'lucide-react'
 import { useCustomers } from '../context/CustomerContext'
-
 import EmptyState from '../components/EmptyState'
 import {
   INSURANCE_TYPES, INSURANCE_COLORS,
-  getDeadlineStatus, formatCurrency,
+  getDeadlineStatus, formatCurrency, getAnnualPremium,
 } from '../lib/constants'
 
 const tooltipStyle = {
@@ -70,7 +66,7 @@ function EmptyChart({ message }) {
 }
 
 export default function Analytics() {
-  const { customers, insurances, loading } = useCustomers()
+  const { insurances, loading } = useCustomers()
   const navigate = useNavigate()
 
   const typeStats = useMemo(() => {
@@ -79,7 +75,7 @@ export default function Analytics() {
     insurances.forEach((p) => {
       if (stats[p.insurance_type]) {
         stats[p.insurance_type].count++
-        stats[p.insurance_type].totalAmount += Number(p.premium) || 0
+        stats[p.insurance_type].totalAmount += getAnnualPremium(p)
       }
     })
     return INSURANCE_TYPES.map((t) => ({
@@ -110,68 +106,13 @@ export default function Analytics() {
       const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
       if (!months[key]) months[key] = { key, month: label, count: 0, amount: 0 }
       months[key].count++
-      months[key].amount += Number(p.premium) || 0
+      months[key].amount += getAnnualPremium(p)
     })
     return Object.values(months).sort((a, b) => a.key.localeCompare(b.key))
   }, [insurances])
 
-  const totalPremium = insurances.reduce((sum, p) => sum + (Number(p.premium) || 0), 0)
+  const totalPremium = insurances.reduce((sum, p) => sum + getAnnualPremium(p), 0)
   const avgPremium = insurances.length > 0 ? Math.round(totalPremium / insurances.length) : 0
-
-  const exportPDF = () => {
-    if (insurances.length === 0) return
-    const doc = new jsPDF()
-
-    doc.setFontSize(20)
-    doc.setTextColor(16, 185, 129)
-    doc.text('Insurance Portfolio Analytics', 14, 22)
-
-    doc.setFontSize(10)
-    doc.setTextColor(100)
-    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 30)
-
-    doc.setFontSize(14)
-    doc.setTextColor(0)
-    doc.text('Executive Summary', 14, 42)
-
-    const summaryData = [
-      ['Total Premium Value', formatCurrency(totalPremium)],
-      ['Average Premium', formatCurrency(avgPremium)],
-      ['Total Customers', customers.length.toString()],
-      ['Total Policies', insurances.length.toString()],
-      ['Types of Insurance', INSURANCE_TYPES.length.toString()]
-    ]
-
-    doc.autoTable({
-      body: summaryData,
-      startY: 46,
-      theme: 'plain',
-      styles: { fontSize: 11, cellPadding: 2 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
-    })
-
-    doc.setFontSize(14)
-    doc.text('Insurance Type Breakdown', 14, doc.lastAutoTable.finalY + 12)
-
-    const tableColumn = ['Insurance Type', 'Policies', 'Total Premium', 'Avg Premium']
-    const tableRows = typeStats.map(t => [
-      t.fullName,
-      t.count.toString(),
-      formatCurrency(t.totalAmount),
-      formatCurrency(t.avgAmount)
-    ])
-
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: doc.lastAutoTable.finalY + 16,
-      theme: 'grid',
-      headStyles: { fillStyle: '#10b981', textColor: [255, 255, 255], fontStyle: 'bold' },
-      styles: { fontSize: 9, cellPadding: 3 },
-    })
-
-    doc.save('insurance_analytics_report.pdf')
-  }
 
   if (loading) return <LoadingSkeleton />
 
@@ -183,21 +124,11 @@ export default function Analytics() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Analytics</h1>
-          <p className="text-sm font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
-            Detailed insights into your insurance portfolio
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={exportPDF}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-md shadow-primary-500/25"
-          >
-            <Download className="w-4 h-4" aria-hidden="true" /> Download Report
-          </button>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Analytics</h1>
+        <p className="text-sm font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Detailed insights into your insurance portfolio
+        </p>
       </div>
 
       {/* Summary Stats */}

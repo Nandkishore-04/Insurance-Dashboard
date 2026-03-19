@@ -25,17 +25,26 @@ export const getDeadlineStatus = (expiryDate) => {
   if (!expiryDate) return 'active'
   const days = getDaysUntilDeadline(expiryDate)
   if (days < 0) return 'overdue'
-  if (days <= 30) return 'approaching'
+  if (days <= 60) return 'approaching'
   return 'active'
+}
+
+const MODE_MULTIPLIER = { YLY: 1, HLY: 2, QLY: 4, MLY: 12 }
+
+export const getAnnualPremium = (policy) => {
+  const premium = Number(policy.premium) || 0
+  const mode = policy.details?.mode || ''
+  const multiplier = MODE_MULTIPLIER[mode] || 1
+  return premium * multiplier
 }
 
 export const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  const d = new Date(dateStr)
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  return `${dd}/${mm}/${yyyy}`
 }
 
 export const formatCurrency = (amount) => {

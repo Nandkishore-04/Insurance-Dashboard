@@ -25,4 +25,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // System operations
     getPlatform: () => process.platform,
     seedLargeData: (count) => ipcRenderer.invoke('db:seed-large-data', count),
+    openBackupFolder: () => ipcRenderer.invoke('shell:open-backup-folder'),
+
+    // Keyboard shortcut listener (from main process menu accelerators)
+    onShortcut: (callback) => {
+        ipcRenderer.on('shortcut', (_e, action) => callback(action))
+    },
+    removeShortcutListeners: () => {
+        ipcRenderer.removeAllListeners('shortcut')
+    },
+
+    // Auto-update operations
+    checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+    installUpdate: () => ipcRenderer.invoke('app:install-update'),
+    getAppVersion: () => ipcRenderer.invoke('app:get-version'),
+    onUpdateStatus: (callback) => {
+        ipcRenderer.on('update-status', (_e, data) => callback(data))
+    },
+    removeUpdateListeners: () => {
+        ipcRenderer.removeAllListeners('update-status')
+    },
 })

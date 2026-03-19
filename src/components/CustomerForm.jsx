@@ -1,8 +1,73 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { X, UserPlus, Save, Search, ChevronRight, ArrowLeft, Plus } from 'lucide-react'
 import { INSURANCE_TYPES, GENERAL_SUBTYPES, PAYMENT_MODES } from '../lib/constants'
 import { useCustomers } from '../context/CustomerContext'
 import toast from 'react-hot-toast'
+
+// ─── dd/mm/yyyy date input ──────────────────────────────────────
+// Stores ISO (yyyy-mm-dd) internally, displays dd/mm/yyyy to user
+function DateInput({ value, onChange, className, style, placeholder }) {
+  const inputRef = useRef(null)
+
+  // Convert ISO → dd/mm/yyyy for display
+  const toDisplay = (iso) => {
+    if (!iso) return ''
+    const parts = iso.split('-')
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+    return iso
+  }
+
+  // Convert dd/mm/yyyy → ISO for storage
+  const toISO = (display) => {
+    const cleaned = display.replace(/[^0-9/]/g, '')
+    const parts = cleaned.split('/')
+    if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`
+    }
+    return null
+  }
+
+  const [displayVal, setDisplayVal] = useState(toDisplay(value))
+
+  useEffect(() => {
+    // Sync when value changes externally (e.g., edit mode loading data)
+    setDisplayVal(toDisplay(value))
+  }, [value])
+
+  const handleChange = (e) => {
+    let raw = e.target.value.replace(/[^0-9/]/g, '')
+
+    // Auto-insert slashes after dd and mm
+    if (raw.length === 2 && !raw.includes('/')) raw += '/'
+    if (raw.length === 5 && raw.charAt(2) === '/' && raw.split('/').length === 2) raw += '/'
+
+    // Limit to 10 chars (dd/mm/yyyy)
+    if (raw.length > 10) raw = raw.slice(0, 10)
+
+    setDisplayVal(raw)
+
+    const iso = toISO(raw)
+    if (iso) {
+      onChange({ target: { value: iso } })
+    } else if (raw === '') {
+      onChange({ target: { value: '' } })
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      inputMode="numeric"
+      value={displayVal}
+      onChange={handleChange}
+      className={className}
+      style={style}
+      placeholder={placeholder || 'dd/mm/yyyy'}
+      maxLength={10}
+    />
+  )
+}
 
 /**
  * mode prop shapes:
@@ -14,6 +79,8 @@ import toast from 'react-hot-toast'
 
 const emptyCustomer = {
   name: '',
+  name_as_per_it: '',
+  cust_code: '',
   dob: '',
   sex: '',
   email: '',
@@ -42,16 +109,15 @@ const emptyInsurance = {
   regn_no: '',
   make: '',
   model: '',
-  mfg_year: '',
   cc: '',
   gvw: '',
-  regn_validity: '',
+  od_start: '',
   od_expiry: '',
+  tp_start: '',
   tp_expiry: '',
-  cpa_expiry: '',
+  comp_start: '',
   comp_expiry: '',
   idv: '',
-  nil_depreciation: 'No',
   // Health (formerly Mediclaim)
   proposer_name: '',
   prop_dob: '',
@@ -133,6 +199,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [selectionMade, setSelectionMade] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
 
   // Reset form on open/mode change
   useEffect(() => {
@@ -141,10 +208,13 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
     setSubmitting(false)
     setSelectionMade(false)
     setCustomerSearch('')
+    setIsDirty(false)
     if (mode?.type === 'editCustomer') {
       setStep('editCustomer')
       setCustomerForm({
         name: mode.customer.name || '',
+        name_as_per_it: mode.customer.name_as_per_it || '',
+        cust_code: mode.customer.cust_code || '',
         dob: mode.customer.dob || '',
         sex: mode.customer.sex || '',
         email: mode.customer.email || '',
@@ -287,9 +357,11 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
   const handleSelectCustomer = (cust) => {
     setSelectedCustomer(cust)
     setIsNewCustomer(false)
+    setIsDirty(true)
     setCustomerForm({
       ...emptyCustomer,
       name: cust.name || '',
+      name_as_per_it: cust.name_as_per_it || '',
       dob: cust.dob || '',
       sex: cust.sex || '',
       email: cust.email || '',
@@ -339,19 +411,18 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
         regn_no: f.regn_no?.trim() || null,
         make: f.make?.trim() || null,
         model: f.model?.trim() || null,
-        mfg_year: f.mfg_year || null,
         cc: f.cc || null,
         gvw: f.gvw || null,
-        regn_validity: f.regn_validity || null,
+        od_start: f.od_start || null,
         od_expiry: f.od_expiry || null,
+        tp_start: f.tp_start || null,
         tp_expiry: f.tp_expiry || null,
-        cpa_expiry: f.cpa_expiry || null,
+        comp_start: f.comp_start || null,
         comp_expiry: f.comp_expiry || null,
         idv: f.idv || null,
-        nil_depreciation: f.nil_depreciation || 'No',
       }
       // expiry_date = earliest of the expiry dates
-      const dates = [f.od_expiry, f.tp_expiry, f.cpa_expiry, f.comp_expiry].filter(Boolean)
+      const dates = [f.od_expiry, f.tp_expiry, f.comp_expiry].filter(Boolean)
       expiry_date = dates.length > 0 ? dates.sort()[0] : null
     } else if (f.insurance_type === 'Health') {
       details = {
@@ -360,6 +431,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
         family_size: f.family_size || null,
         scheme: f.scheme?.trim() || null,
         sum_insured: f.sum_insured || null,
+        policy_start: f.policy_start || null,
       }
       expiry_date = f.policy_expiry || null
     } else if (f.insurance_type === 'Life') {
@@ -369,6 +441,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
         term: f.term || null,
         ppt: f.ppt || null,
         mode: f.mode || null,
+        policy_start: f.policy_start || null,
       }
       expiry_date = f.due_date || null
     } else if (f.insurance_type === 'Personal Accident') {
@@ -427,17 +500,43 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
   const setIns = (key, value) => {
     setInsuranceForm((f) => ({ ...f, [key]: value }))
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
+    setIsDirty(true)
   }
 
   const setCust = (key, value) => {
     setCustomerForm((f) => ({ ...f, [key]: value }))
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
+    setIsDirty(true)
   }
+
+  const handleBack = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Are you sure you want to go back?')) return
+    onClose()
+  }
+
+  // Esc → back (same as clicking the back button)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') handleBack()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, isDirty])
 
   if (!open) return null
 
   const isEdit = mode?.type === 'editInsurance'
   const isEditCustomer = mode?.type === 'editCustomer'
+
+  // Customer code preview (computed from name + existing customers)
+  const custCodeLetter = customerForm.name.trim()[0]?.toUpperCase()
+  const custCodePreview = isEditCustomer
+    ? (mode?.customer?.cust_code || null)
+    : custCodeLetter
+      ? `${custCodeLetter}${String(customers.filter(c => c.cust_code?.startsWith(custCodeLetter)).length + 1).padStart(4, '0')}`
+      : null
+
   const title = isEditCustomer
     ? 'Edit Customer'
     : isEdit
@@ -473,10 +572,11 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
         >
           <div className="flex items-center gap-4">
             <button
-              onClick={onClose}
+              onClick={handleBack}
               className="p-2 -ml-2 rounded-xl transition-all duration-200 hover:bg-[var(--hover-bg)]"
               style={{ color: 'var(--text-secondary)' }}
               aria-label="Back"
+              title="Back (Esc)"
               data-testid="btn-form-back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -606,7 +706,16 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                                <p className="text-xs font-semibold opacity-70" style={{ color: 'var(--text-secondary)' }}>{c.phone || c.cust_code || 'No details'}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {c.cust_code && (
+                                    <span className="text-[10px] font-bold text-primary-600 bg-primary-500/10 px-1.5 py-0.5 rounded font-mono">
+                                      {c.cust_code}
+                                    </span>
+                                  )}
+                                  {c.phone && (
+                                    <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{c.phone}</span>
+                                  )}
+                                </div>
                               </div>
                               <ArrowLeft className="w-4 h-4 rotate-180 text-[var(--text-muted)] group-hover:text-primary-600 transition-colors" />
                             </button>
@@ -691,7 +800,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                             </div>
                           </div>
                         ) : (
-                          <CustomerFormSection form={isEditCustomer ? customerForm : customerForm} setForm={setCust} errors={errors} isStep1 />
+                          <CustomerFormSection form={customerForm} setForm={setCust} errors={errors} isStep1 custCodePreview={custCodePreview} />
                         )}
                       </div>
 
@@ -767,10 +876,6 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                               </Field>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                              <Field label="Mfg Year">
-                                <input type="text" value={insuranceForm.mfg_year} onChange={(e) => setIns('mfg_year', e.target.value)}
-                                  className={inputClass} style={inputStyle()} placeholder="YYYY" />
-                              </Field>
                               <Field label="CC / Power">
                                 <input type="text" value={insuranceForm.cc} onChange={(e) => setIns('cc', e.target.value)}
                                   className={inputClass} style={inputStyle()} placeholder="Cubic Capacity" />
@@ -784,35 +889,34 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                                   className={inputClass} style={inputStyle()} placeholder="Sum Insured" />
                               </Field>
                             </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                              <Field label="Reg. Validity">
-                                <input type="date" value={insuranceForm.regn_validity} onChange={(e) => setIns('regn_validity', e.target.value)}
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                              <Field label="OD Start Date">
+                                <DateInput value={insuranceForm.od_start} onChange={(e) => setIns('od_start', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                               <Field label="OD Expiry">
-                                <input type="date" value={insuranceForm.od_expiry} onChange={(e) => setIns('od_expiry', e.target.value)}
-                                  className={inputClass} style={inputStyle()} />
-                              </Field>
-                              <Field label="TP Expiry">
-                                <input type="date" value={insuranceForm.tp_expiry} onChange={(e) => setIns('tp_expiry', e.target.value)}
-                                  className={inputClass} style={inputStyle()} />
-                              </Field>
-                              <Field label="CPA Expiry">
-                                <input type="date" value={insuranceForm.cpa_expiry} onChange={(e) => setIns('cpa_expiry', e.target.value)}
+                                <DateInput value={insuranceForm.od_expiry} onChange={(e) => setIns('od_expiry', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                              <Field label="Comp Expiry">
-                                <input type="date" value={insuranceForm.comp_expiry} onChange={(e) => setIns('comp_expiry', e.target.value)}
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                              <Field label="TP Start Date">
+                                <DateInput value={insuranceForm.tp_start} onChange={(e) => setIns('tp_start', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
-                              <Field label="Zero Dep?">
-                                <select value={insuranceForm.nil_depreciation} onChange={(e) => setIns('nil_depreciation', e.target.value)}
-                                  className={inputClass} style={selectStyle(false, true)}>
-                                  <option value="No">No (Normal)</option>
-                                  <option value="Yes">Yes (Nil Dep)</option>
-                                </select>
+                              <Field label="TP Expiry">
+                                <DateInput value={insuranceForm.tp_expiry} onChange={(e) => setIns('tp_expiry', e.target.value)}
+                                  className={inputClass} style={inputStyle()} />
+                              </Field>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                              <Field label="Comp Start Date">
+                                <DateInput value={insuranceForm.comp_start} onChange={(e) => setIns('comp_start', e.target.value)}
+                                  className={inputClass} style={inputStyle()} />
+                              </Field>
+                              <Field label="Comp Expiry">
+                                <DateInput value={insuranceForm.comp_expiry} onChange={(e) => setIns('comp_expiry', e.target.value)}
+                                  className={inputClass} style={inputStyle()} />
                               </Field>
                             </div>
                           </div>
@@ -826,7 +930,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                                   className={inputClass} style={inputStyle(errors.proposer_name)} placeholder="Insured Person" />
                               </Field>
                               <Field label="Proposer DOB">
-                                <input type="date" value={insuranceForm.prop_dob} onChange={(e) => setIns('prop_dob', e.target.value)}
+                                <DateInput value={insuranceForm.prop_dob} onChange={(e) => setIns('prop_dob', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                               <Field label="Family Coverage">
@@ -838,13 +942,17 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                                   className={inputClass} style={inputStyle()} placeholder="Silver/Gold" />
                               </Field>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                               <Field label="Sum Insured (Floating)" required error={errors.sum_insured}>
                                 <input type="number" value={insuranceForm.sum_insured} onChange={(e) => setIns('sum_insured', e.target.value)}
                                   className={inputClass} style={inputStyle(errors.sum_insured)} placeholder="Limit" />
                               </Field>
+                              <Field label="Policy Start Date">
+                                <DateInput value={insuranceForm.policy_start} onChange={(e) => setIns('policy_start', e.target.value)}
+                                  className={inputClass} style={inputStyle()} />
+                              </Field>
                               <Field label="Renewal Due / Expiry" required error={errors.policy_expiry}>
-                                <input type="date" value={insuranceForm.policy_expiry} onChange={(e) => setIns('policy_expiry', e.target.value)}
+                                <DateInput value={insuranceForm.policy_expiry} onChange={(e) => setIns('policy_expiry', e.target.value)}
                                   className={inputClass} style={inputStyle(errors.policy_expiry)} />
                               </Field>
                             </div>
@@ -878,9 +986,13 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                                 </select>
                               </Field>
                             </div>
-                            <div className="w-full lg:w-1/3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                              <Field label="Policy Start Date">
+                                <DateInput value={insuranceForm.policy_start} onChange={(e) => setIns('policy_start', e.target.value)}
+                                  className={inputClass} style={inputStyle()} />
+                              </Field>
                               <Field label="Next Due Date" required error={errors.due_date}>
-                                <input type="date" value={insuranceForm.due_date} onChange={(e) => setIns('due_date', e.target.value)}
+                                <DateInput value={insuranceForm.due_date} onChange={(e) => setIns('due_date', e.target.value)}
                                   className={inputClass} style={inputStyle(errors.due_date)} />
                               </Field>
                             </div>
@@ -895,7 +1007,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                                   className={inputClass} style={inputStyle()} placeholder="Full Name" />
                               </Field>
                               <Field label="Insured DOB">
-                                <input type="date" value={insuranceForm.prop_dob} onChange={(e) => setIns('prop_dob', e.target.value)}
+                                <DateInput value={insuranceForm.prop_dob} onChange={(e) => setIns('prop_dob', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                               <Field label="Sum Insured (₹)">
@@ -905,11 +1017,11 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <Field label="Policy Start Date">
-                                <input type="date" value={insuranceForm.policy_start} onChange={(e) => setIns('policy_start', e.target.value)}
+                                <DateInput value={insuranceForm.policy_start} onChange={(e) => setIns('policy_start', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                               <Field label="Policy Expiry Date">
-                                <input type="date" value={insuranceForm.policy_expiry} onChange={(e) => setIns('policy_expiry', e.target.value)}
+                                <DateInput value={insuranceForm.policy_expiry} onChange={(e) => setIns('policy_expiry', e.target.value)}
                                   className={inputClass} style={inputStyle()} />
                               </Field>
                             </div>
@@ -957,7 +1069,7 @@ export default function CustomerForm({ open, onClose, mode, asModal = true }) {
         {isEditCustomer && (
           <div className="flex-1 overflow-y-auto p-12">
             <form onSubmit={handleSubmitEditCustomer} className="max-w-4xl mx-auto space-y-12">
-              <CustomerFormSection form={customerForm} setForm={setCust} errors={errors} isStep1={false} />
+              <CustomerFormSection form={customerForm} setForm={setCust} errors={errors} isStep1={false} custCodePreview={custCodePreview} codeEditable={false} />
               <div className="pt-12 border-t">
                 <FormActions onClose={onClose} submitting={submitting} label="Update Profile" />
               </div>
@@ -998,22 +1110,44 @@ function FormActions({ onClose, submitting, label }) {
   )
 }
 
-function CustomerFormSection({ form, setForm, errors, isStep1 }) {
+function CustomerFormSection({ form, setForm, errors, isStep1, custCodePreview, codeEditable = true }) {
   const containerClass = isStep1
     ? "space-y-6"
     : "space-y-8"
 
   return (
     <div className={containerClass}>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <Field label="Full Name" required error={errors.name}>
-            <input type="text" value={form.name} onChange={(e) => setForm('name', e.target.value)}
-              className={inputClass} style={inputStyle(errors.name)} placeholder="e.g. Rajesh Kumar" data-testid="input-customer-name" />
-          </Field>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Field label="Full Name" required error={errors.name}>
+          <input type="text" value={form.name} onChange={(e) => setForm('name', e.target.value)}
+            className={inputClass} style={inputStyle(errors.name)} placeholder="e.g. Rajesh Kumar" data-testid="input-customer-name" />
+        </Field>
+        <Field label="Name as per IT">
+          <input type="text" value={form.name_as_per_it} onChange={(e) => setForm('name_as_per_it', e.target.value)}
+            className={inputClass} style={inputStyle()} placeholder="As per IT returns" />
+        </Field>
+        <Field label="Customer Code">
+          {codeEditable ? (
+            <input
+              type="text"
+              value={form.cust_code}
+              onChange={(e) => setForm('cust_code', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              className={inputClass}
+              style={inputStyle()}
+              placeholder={custCodePreview || 'e.g. A0001'}
+              maxLength={10}
+            />
+          ) : (
+            <div
+              className={`${inputClass} flex items-center justify-between select-none`}
+              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-color)', cursor: 'default' }}
+            >
+              <span className="font-mono font-bold text-primary-600">{custCodePreview || '—'}</span>
+            </div>
+          )}
+        </Field>
         <Field label="DOB">
-          <input type="date" value={form.dob} onChange={(e) => setForm('dob', e.target.value)}
+          <DateInput value={form.dob} onChange={(e) => setForm('dob', e.target.value)}
             className={inputClass} style={inputStyle()} />
         </Field>
       </div>
@@ -1073,7 +1207,7 @@ function CustomerFormSection({ form, setForm, errors, isStep1 }) {
           <input type="text" value={form.mother_name} onChange={(e) => setForm('mother_name', e.target.value)}
             className={inputClass} style={inputStyle()} placeholder="Full Name" />
         </Field>
-        <Field label={form.sex === 'Male' ? "Wife's Name" : form.sex === 'Female' ? "Husband's Name" : "Spouse Name"}>
+        <Field label="Spouse Name">
           <input type="text" value={form.spouse_name} onChange={(e) => setForm('spouse_name', e.target.value)}
             className={inputClass} style={inputStyle()} placeholder="Full Name" />
         </Field>
@@ -1088,12 +1222,12 @@ function CustomerFormSection({ form, setForm, errors, isStep1 }) {
         </div>
         <Field label="Relation">
           <input type="text" value={form.relation} onChange={(e) => setForm('relation', e.target.value)}
-            className={inputClass} style={inputStyle()} placeholder="e.g. Son, Wife" />
+            className={inputClass} style={inputStyle()} placeholder="e.g. Son, Spouse" />
         </Field>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field label="Nominee DOB">
-          <input type="date" value={form.nominee_dob} onChange={(e) => setForm('nominee_dob', e.target.value)}
+          <DateInput value={form.nominee_dob} onChange={(e) => setForm('nominee_dob', e.target.value)}
             className={inputClass} style={inputStyle()} />
         </Field>
         <div className="md:col-span-2">

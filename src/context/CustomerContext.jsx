@@ -22,12 +22,12 @@ export function CustomerProvider({ children }) {
         fetchInsurances(),
       ])
 
-      // Map old insurance types to new ones if necessary
+      // Map legacy insurance type names to current ones
       const mappedInsurances = insData.map(ins => {
         let mappedType = ins.insurance_type
         if (mappedType === 'Motor') mappedType = 'General'
         else if (mappedType === 'Mediclaim') mappedType = 'Health'
-        else if (mappedType === 'General') mappedType = 'Life'
+        // Note: 'General' now means vehicle insurance — do NOT remap it to 'Life'
 
         return { ...ins, insurance_type: mappedType }
       })
