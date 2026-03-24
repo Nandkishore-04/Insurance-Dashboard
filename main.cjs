@@ -387,9 +387,9 @@ app.whenReady().then(() => {
             log('ERROR', 'Auto-update error:', err.message)
         })
 
-        // Check for updates 10 seconds after launch, then every 4 hours
+        // Check for updates 10 seconds after launch, then every 5 minutes
         setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 10000)
-        setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000)
+        setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 5 * 60 * 1000)
     }
 
     // IPC handler for manual update check from renderer
