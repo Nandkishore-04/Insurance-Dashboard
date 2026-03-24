@@ -9,6 +9,7 @@ import { useCustomers } from '../context/CustomerContext'
 import toast from 'react-hot-toast'
 import CustomerForm from '../components/CustomerForm'
 import ConfirmDialog from '../components/ConfirmDialog'
+import RenewalDialog from '../components/RenewalDialog'
 import EmptyState from '../components/EmptyState'
 import {
   getDaysUntilDeadline, getDeadlineStatus,
@@ -53,6 +54,7 @@ export default function Customers() {
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState(null) // { type: 'addInsurance', customerId } | { type: 'editInsurance', insurance } | { type: 'editCustomer', customer } | null
   const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'customer', item } | { type: 'insurance', item }
+  const [renewalTarget, setRenewalTarget] = useState(null)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
@@ -405,13 +407,13 @@ export default function Customers() {
               <div
                 className="grid text-xs font-bold uppercase tracking-wider"
                 style={{
-                  gridTemplateColumns: 'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 120px 100px 80px',
+                  gridTemplateColumns: 'minmax(180px,2fr) minmax(100px,1fr) minmax(80px,1fr) 110px 100px 70px 140px',
                   borderBottom: '2px solid var(--border-color)',
                   color: 'var(--text-primary)',
                 }}
               >
-                {['Customer', 'Policy Type', 'Insurer', 'Premium (Yearly)', 'Due Date', 'Days'].map((label, i) => (
-                  <div key={i} className="px-5 py-4 text-left">{label}</div>
+                {['Customer', 'Policy Type', 'Insurer', 'Premium/Year', 'Due Date', 'Days', ''].map((label, i) => (
+                  <div key={i} className="px-4 py-4 text-left">{label}</div>
                 ))}
               </div>
 
@@ -421,36 +423,54 @@ export default function Customers() {
                   return (
                     <div
                       key={p.id}
-                      className="grid items-center cursor-pointer transition-colors duration-150 hover:bg-[var(--hover-bg)]"
+                      className="grid items-center transition-colors duration-150 hover:bg-[var(--hover-bg)]"
                       style={{
-                        gridTemplateColumns: 'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 120px 100px 80px',
+                        gridTemplateColumns: 'minmax(180px,2fr) minmax(100px,1fr) minmax(80px,1fr) 110px 100px 70px 140px',
                         borderBottom: '1px solid var(--border-color)',
                         backgroundColor: index % 2 === 0 ? 'transparent' : 'var(--hover-bg)',
                       }}
-                      onClick={() => navigate(`/customer/${p.customerId}`)}
                     >
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5 cursor-pointer" onClick={() => navigate(`/customer/${p.customerId}`)}>
                         <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{p.customerName}</p>
+                        {p.policy_no && <p className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>#{p.policy_no}</p>}
                       </div>
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5">
                         <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{p.insurance_type}</span>
                       </div>
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5">
                         <span className="text-sm font-medium truncate" style={{ color: 'var(--text-muted)' }}>{p.insurer || '—'}</span>
                       </div>
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5">
                         <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(p.annualPremium)}</span>
                       </div>
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5">
                         <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{formatDate(p.expiry_date)}</span>
                       </div>
-                      <div className="px-5 py-3.5">
+                      <div className="px-4 py-3.5">
                         <span
                           className="text-[11px] px-2.5 py-1 rounded-full font-bold whitespace-nowrap"
                           style={{ backgroundColor: sv.bg, color: sv.text }}
                         >
                           {p.days < 0 ? `${Math.abs(p.days)}d late` : `${p.days}d`}
                         </span>
+                      </div>
+                      <div className="px-4 py-3.5 flex items-center gap-2">
+                        {(statusFilter === 'approaching' || statusFilter === 'overdue') && (
+                          <button
+                            onClick={() => setRenewalTarget(p)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors whitespace-nowrap"
+                          >
+                            Mark Renewed
+                          </button>
+                        )}
+                        <button
+                          onClick={() => navigate(`/customer/${p.customerId}`)}
+                          className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover-bg)]"
+                          style={{ color: 'var(--text-muted)' }}
+                          aria-label="View customer"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   )
@@ -657,6 +677,18 @@ export default function Customers() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+      {renewalTarget && (
+        <RenewalDialog
+          policy={renewalTarget}
+          customer={customers.find((c) => c.id === renewalTarget.customer_id)}
+          onClose={() => setRenewalTarget(null)}
+          onRenew={(policy) => {
+            setFormMode({ type: 'editInsurance', insurance: policy })
+            setFormOpen(true)
+            setRenewalTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }
