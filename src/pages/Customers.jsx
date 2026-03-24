@@ -12,7 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
 import {
   getDaysUntilDeadline, getDeadlineStatus,
-  formatDate, formatCurrency,
+  formatDate, formatCurrency, getAnnualPremium,
 } from '../lib/constants'
 
 function LoadingSkeleton() {
@@ -56,13 +56,14 @@ export default function Customers() {
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
-  const [sortKey, setSortKey] = useState('name')
+  const [sortKey, setSortKey] = useState(searchParams.get('status') ? 'dueDate' : 'name')
   const [sortAsc, setSortAsc] = useState(true)
   const [expanded, setExpanded] = useState({})
+  const [visibleCount, setVisibleCount] = useState(50)
 
   // Debounce search — 300ms delay so typing doesn't trigger re-filter on every keystroke
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => { setDebouncedSearch(search); setVisibleCount(50) }, 300)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -82,16 +83,20 @@ export default function Customers() {
   const enriched = useMemo(() => {
     return customers.map((c) => {
       const policies = getCustomerInsurances(c.id)
-      const totalPremium = policies.reduce((sum, p) => sum + (Number(p.premium) || 0), 0)
+      const totalPremium = policies.reduce((sum, p) => sum + getAnnualPremium(p), 0)
       const policyCount = policies.length
-      // Worst status across all policies
+      // Worst status + earliest due date (pre-computed for fast sorting)
       let worstStatus = 'active'
+      let earliestDate = null
       for (const p of policies) {
         const s = getDeadlineStatus(p.expiry_date)
         if (s === 'overdue') { worstStatus = 'overdue'; break }
         if (s === 'approaching') worstStatus = 'approaching'
+        if (p.expiry_date && (!earliestDate || p.expiry_date < earliestDate)) {
+          earliestDate = p.expiry_date
+        }
       }
-      return { ...c, policies, totalPremium, policyCount, worstStatus }
+      return { ...c, policies, totalPremium, policyCount, worstStatus, earliestDate }
     })
   }, [customers, getCustomerInsurances])
 
@@ -136,26 +141,43 @@ export default function Customers() {
       else if (sortKey === 'policies') cmp = a.policyCount - b.policyCount
       else if (sortKey === 'premium') cmp = a.totalPremium - b.totalPremium
       else if (sortKey === 'dueDate') {
-        const aDate = a.policies.reduce((earliest, p) => {
-          if (!p.expiry_date) return earliest
-          return !earliest || p.expiry_date < earliest ? p.expiry_date : earliest
-        }, null)
-        const bDate = b.policies.reduce((earliest, p) => {
-          if (!p.expiry_date) return earliest
-          return !earliest || p.expiry_date < earliest ? p.expiry_date : earliest
-        }, null)
-        if (!aDate && !bDate) cmp = 0
-        else if (!aDate) cmp = 1
-        else if (!bDate) cmp = -1
-        else cmp = aDate.localeCompare(bDate)
+        if (!a.earliestDate && !b.earliestDate) cmp = 0
+        else if (!a.earliestDate) cmp = 1
+        else if (!b.earliestDate) cmp = -1
+        else cmp = a.earliestDate.localeCompare(b.earliestDate)
       }
       return sortAsc ? cmp : -cmp
     })
     return result
   }, [enriched, debouncedSearch, statusFilter, sortKey, sortAsc])
 
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
+  const hasMore = filtered.length > visibleCount
+
+  // Flat policy list for status filter views (approaching/overdue/active)
+  const flatPolicies = useMemo(() => {
+    if (!statusFilter) return []
+    const customerMap = new Map(customers.map((c) => [c.id, c]))
+    return insurances
+      .filter((p) => getDeadlineStatus(p.expiry_date) === statusFilter)
+      .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date))
+      .map((p) => ({
+        ...p,
+        customerName: customerMap.get(p.customer_id)?.name || 'Unknown',
+        customerId: p.customer_id,
+        days: getDaysUntilDeadline(p.expiry_date),
+        annualPremium: getAnnualPremium(p),
+      }))
+  }, [statusFilter, insurances, customers])
+  const visiblePolicies = useMemo(() => flatPolicies.slice(0, visibleCount), [flatPolicies, visibleCount])
+  const hasMorePolicies = flatPolicies.length > visibleCount
+
   const totalPremium = useMemo(
     () => filtered.reduce((sum, c) => sum + c.totalPremium, 0),
+    [filtered]
+  )
+  const totalPolicyCount = useMemo(
+    () => filtered.reduce((sum, c) => sum + c.policyCount, 0),
     [filtered]
   )
 
@@ -317,7 +339,7 @@ export default function Customers() {
           <Filter className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} aria-hidden="true" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setVisibleCount(50) }}
             className="px-3.5 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all duration-200 min-w-[150px]"
             style={{
               backgroundColor: 'var(--bg-input)',
@@ -361,6 +383,109 @@ export default function Customers() {
         </div>
       </div>
 
+      {/* Policy-level flat list when status filter is active */}
+      {statusFilter ? (
+        <div
+          className="rounded-2xl border overflow-hidden"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderColor: 'var(--border-color)',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          {flatPolicies.length === 0 ? (
+            <EmptyState
+              type="search"
+              title={`No ${statusFilter} policies`}
+              description="Try adjusting your filter."
+            />
+          ) : (
+            <>
+              {/* Header */}
+              <div
+                className="grid text-xs font-bold uppercase tracking-wider"
+                style={{
+                  gridTemplateColumns: 'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 120px 100px 80px',
+                  borderBottom: '2px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {['Customer', 'Policy Type', 'Insurer', 'Premium (Yearly)', 'Due Date', 'Days'].map((label, i) => (
+                  <div key={i} className="px-5 py-4 text-left">{label}</div>
+                ))}
+              </div>
+
+              <div style={{ maxHeight: 600, overflowY: 'auto', contain: 'layout style' }}>
+                {visiblePolicies.map((p, index) => {
+                  const sv = statusVars[statusFilter]
+                  return (
+                    <div
+                      key={p.id}
+                      className="grid items-center cursor-pointer transition-colors duration-150 hover:bg-[var(--hover-bg)]"
+                      style={{
+                        gridTemplateColumns: 'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 120px 100px 80px',
+                        borderBottom: '1px solid var(--border-color)',
+                        backgroundColor: index % 2 === 0 ? 'transparent' : 'var(--hover-bg)',
+                      }}
+                      onClick={() => navigate(`/customer/${p.customerId}`)}
+                    >
+                      <div className="px-5 py-3.5">
+                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{p.customerName}</p>
+                      </div>
+                      <div className="px-5 py-3.5">
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{p.insurance_type}</span>
+                      </div>
+                      <div className="px-5 py-3.5">
+                        <span className="text-sm font-medium truncate" style={{ color: 'var(--text-muted)' }}>{p.insurer || '—'}</span>
+                      </div>
+                      <div className="px-5 py-3.5">
+                        <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(p.annualPremium)}</span>
+                      </div>
+                      <div className="px-5 py-3.5">
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{formatDate(p.expiry_date)}</span>
+                      </div>
+                      <div className="px-5 py-3.5">
+                        <span
+                          className="text-[11px] px-2.5 py-1 rounded-full font-bold whitespace-nowrap"
+                          style={{ backgroundColor: sv.bg, color: sv.text }}
+                        >
+                          {p.days < 0 ? `${Math.abs(p.days)}d late` : `${p.days}d`}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {hasMorePolicies && (
+                  <div className="flex justify-center py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                    <button
+                      onClick={() => setVisibleCount((v) => v + 50)}
+                      className="px-6 py-2 rounded-xl text-sm font-semibold transition-colors"
+                      style={{ color: 'var(--text-primary)', backgroundColor: 'var(--hover-bg)' }}
+                    >
+                      Show More ({flatPolicies.length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {flatPolicies.length > 0 && (
+            <div
+              className="px-5 py-3 border-t flex items-center justify-between"
+              style={{ borderColor: 'var(--border-color)' }}
+            >
+              <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                {flatPolicies.length} {statusFilter} polic{flatPolicies.length !== 1 ? 'ies' : 'y'}
+              </p>
+              <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                Total Premium: {formatCurrency(flatPolicies.reduce((sum, p) => sum + p.annualPremium, 0))}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Desktop Table */}
       <div
         className="rounded-2xl border overflow-hidden hidden sm:block"
@@ -411,7 +536,7 @@ export default function Customers() {
 
             {/* Scrollable rows with CSS containment for performance */}
             <div style={{ maxHeight: 600, overflowY: 'auto', contain: 'layout style' }}>
-              {filtered.map((c, index) => (
+              {visible.map((c, index) => (
                 <VirtualCustomerRow
                   key={c.id}
                   customer={c}
@@ -426,6 +551,17 @@ export default function Customers() {
                   onDeletePolicy={(p) => setDeleteTarget({ type: 'insurance', item: p })}
                 />
               ))}
+              {hasMore && (
+                <div className="flex justify-center py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                  <button
+                    onClick={() => setVisibleCount((v) => v + 50)}
+                    className="px-6 py-2 rounded-xl text-sm font-semibold transition-colors"
+                    style={{ color: 'var(--text-primary)', backgroundColor: 'var(--hover-bg)' }}
+                  >
+                    Show More ({filtered.length - visibleCount} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -436,7 +572,7 @@ export default function Customers() {
             style={{ borderColor: 'var(--border-color)' }}
           >
             <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-              Showing {filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}
+              Showing {filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''} &middot; {totalPolicyCount} polic{totalPolicyCount !== 1 ? 'ies' : 'y'}
             </p>
             <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
               Total Premium: {formatCurrency(totalPremium)}
@@ -466,7 +602,7 @@ export default function Customers() {
           </div>
         ) : (
           <>
-            {filtered.map((c) => (
+            {visible.map((c) => (
               <MobileCustomerCard
                 key={c.id}
                 customer={c}
@@ -480,12 +616,21 @@ export default function Customers() {
                 onDeletePolicy={(p) => setDeleteTarget({ type: 'insurance', item: p })}
               />
             ))}
+            {hasMore && (
+              <button
+                onClick={() => setVisibleCount((v) => v + 50)}
+                className="w-full py-3 rounded-2xl text-sm font-semibold border transition-colors"
+                style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+              >
+                Show More ({filtered.length - visibleCount} remaining)
+              </button>
+            )}
             <div
               className="rounded-2xl border px-4 py-3 flex items-center justify-between"
               style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
             >
               <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                {filtered.length} customer{filtered.length !== 1 ? 's' : ''}
+                {filtered.length} customer{filtered.length !== 1 ? 's' : ''} &middot; {totalPolicyCount} policies
               </p>
               <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
                 Total: {formatCurrency(totalPremium)}
@@ -494,6 +639,8 @@ export default function Customers() {
           </>
         )}
       </div>
+      </>
+      )}
 
       <CustomerForm
         open={formOpen}
@@ -564,9 +711,9 @@ const VirtualCustomerRow = React.memo(function VirtualCustomerRow({
         <div className="px-5 text-sm font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
           {c.phone || '-'}
         </div>
-        <div className="px-5">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-secondary)' }}>
-            {c.policyCount} polic{c.policyCount !== 1 ? 'ies' : 'y'}
+        <div className="px-5 flex items-center">
+          <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+            {c.policyCount}
           </span>
         </div>
         <div className="px-5 font-bold text-sm" style={{ color: 'var(--text-primary)' }}>

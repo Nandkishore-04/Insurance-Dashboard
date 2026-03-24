@@ -101,13 +101,15 @@ export default function Dashboard() {
   }
 
   const stats = useMemo(() => {
-    const totalCustomers = customers.length
-    const totalPolicies = insurances.length
-    const overdue = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'overdue').length
-    const approaching = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'approaching').length
-    const active = insurances.filter((p) => getDeadlineStatus(p.expiry_date) === 'active').length
-    return { totalCustomers, totalPolicies, overdue, approaching, active }
-  }, [customers, insurances])
+    let overdue = 0, approaching = 0, active = 0
+    for (const p of insurances) {
+      const s = getDeadlineStatus(p.expiry_date)
+      if (s === 'overdue') overdue++
+      else if (s === 'approaching') approaching++
+      else active++
+    }
+    return { totalCustomers: customers.length, totalPolicies: insurances.length, overdue, approaching, active }
+  }, [customers.length, insurances])
 
   const barData = useMemo(() => {
     const counts = {}

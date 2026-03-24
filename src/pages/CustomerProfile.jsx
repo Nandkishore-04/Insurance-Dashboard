@@ -6,7 +6,7 @@ import {
 import { useCustomers } from '../context/CustomerContext'
 import {
     getDaysUntilDeadline, getDeadlineStatus, formatDate,
-    formatCurrency, INSURANCE_COLORS
+    formatCurrency, getAnnualPremium, INSURANCE_COLORS
 } from '../lib/constants'
 import { useState, useMemo } from 'react'
 import CustomerForm from '../components/CustomerForm'
@@ -44,7 +44,7 @@ export default function CustomerProfile() {
 
     const customer = customers.find(c => c.id === id)
     const policies = useMemo(() => customer ? getCustomerInsurances(customer.id) : [], [customer, getCustomerInsurances])
-    const totalPremium = policies.reduce((sum, p) => sum + (Number(p.premium) || 0), 0)
+    const totalPremium = policies.reduce((sum, p) => sum + getAnnualPremium(p), 0)
 
     if (!customer) {
         return (
